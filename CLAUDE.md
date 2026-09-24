@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Stack
 
-- Java 21, Spring Boot 3.3.x (Spring Web MVC, not WebFlux)
+- Java 25, Spring Boot 4.1.x (Spring Web MVC, not WebFlux)
+- Jackson 3 (`tools.jackson.*`); DTO annotations stay in `com.fasterxml.jackson.annotation`
 - Spring Data JPA + H2 in file mode (persists across restarts)
 - Lombok for entity boilerplate
 - Maven (no Gradle)
@@ -18,14 +19,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & run
 
-The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 21 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
+The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
 
 ```bash
 ./mvnw spring-boot:run                          # run from sources (port 8080, hot path for demos)
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port=18080"
 ./mvnw clean package -DskipTests                # build fat jar → target/mock-brevo-0.1.0.jar
 java -jar target/mock-brevo-0.1.0.jar           # run the packaged jar
-./mvnw test                                     # API tests (MockMvc, in-memory H2)
+./mvnw test                                     # API tests + JSON shape snapshots (in-memory H2)
 ./mvnw test -Dtest=ClassName#method             # run a single test
 ./mvnw -Plint verify                            # what CI runs: javac -Xlint -Werror + SpotBugs + tests
 docker compose up -d --build                    # containerized; H2 file volume-mounted at /app/data
@@ -112,10 +113,10 @@ The full priority list (and which Enoria call sites drive each) is in `ENDPOINTS
 - **P3** `/v3/smtp/templates` (GET/POST), `/v3/contacts/folders` (GET/POST) — implemented
 - **P4** `POST /mock-webhooks/fire` — implemented (async, best-effort)
 
-When adding a new Brevo endpoint: (1) add a DTO record in `brevo/dto/` with `@JsonIgnoreProperties(ignoreUnknown = true)` on request records (Brevo payloads often have optional fields we don't model); (2) make the controller method read `CurrentAccount.require()` first; (3) scope every query by account; (4) match Brevo's JSON field names exactly — the PHP SDK deserializes strictly.
+When adding a new Brevo endpoint: (1) add a DTO record in `brevo/dto/` with `@JsonIgnoreProperties(ignoreUnknown = true)` on request records (Brevo payloads often have optional fields we don't model); (2) make the controller method read `CurrentAccount.require()` first; (3) scope every query by account; (4) match Brevo's JSON field names exactly — the PHP SDK deserializes strictly; (5) add a `capture(...)` for it in `ApiShapeSnapshotTest` and record its snapshot with `./mvnw test -Dtest=ApiShapeSnapshotTest -Dsnapshots.update=true`. A failing snapshot means the JSON contract changed: fix the code, or regenerate only if the change is intended and review the diff in `src/test/resources/api-shapes/`.
 
 ## Gotchas
 
 - **Don't enable `AUTO_SERVER=TRUE` on the H2 JDBC URL.** It triggers `NoClassDefFoundError: org/h2/util/NetworkConnectionInfo` under Spring Boot's nested-jar classloader when a second JVM (e.g. parallel tests) tries to connect. The datasource URL in `application.yml` is plain file mode.
-- **Lombok annotation processing** must stay enabled. Entities rely on `@Getter`/`@Setter`.
+- **Lombok annotation processing** must stay enabled. Entities rely on `@Getter`/`@Setter`. Since JDK 23 javac only runs processors listed in `annotationProcessorPaths` (see `pom.xml`); "cannot find symbol" on getters means Lombok didn't run.
 - **Don't actually send email.** `POST /v3/smtp/email` stores the payload and returns a synthetic `messageId`. The only outbound mail path is the opt-in `SmtpForwarder` (`MOCK_SMTP_ENABLED`, off by default), meant for a local catcher such as Mailpit; don't add any other transport or enable it by default.
