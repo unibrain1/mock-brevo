@@ -129,7 +129,7 @@ All settings are environment variables, sensible defaults for dev:
 
 The admin web UI is available in **French** and **English**. The initial language follows the browser (`navigator.language` starting with `fr` → French, anything else → English). The `FR` / `EN` button in the header switches languages, and the choice is saved in `localStorage` (`mock-brevo-lang`). All UI strings live in [`src/main/resources/static/js/i18n.js`](src/main/resources/static/js/i18n.js).
 
-> **AI-assisted translation.** The English translation (UI strings, faker sample data, and [`ENDPOINTS.md`](ENDPOINTS.md)) was done with [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant. Corrections from native speakers of either language are welcome: open an issue or a PR against `i18n.js`.
+> **AI-assisted translation.** The English translation (UI strings, faker sample data, and [`ENDPOINTS.md`](ENDPOINTS.md); the French original is kept as [`ENDPOINTS.fr.md`](ENDPOINTS.fr.md)) was done with [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant. Corrections from native speakers of either language are welcome: open an issue or a PR against `i18n.js`.
 
 ## Contributing
 

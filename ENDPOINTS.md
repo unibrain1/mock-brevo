@@ -1,5 +1,7 @@
 # Brevo API — Implementation priorities for mock-brevo
 
+**English** | [Français](ENDPOINTS.fr.md)
+
 Prioritized list of the endpoints to mock so that Enoria (`/home/adu/git/enoria`) can run against this local server.
 
 ## Context
