@@ -12,9 +12,9 @@ import org.springframework.stereotype.Service;
 public class ContactListFaker {
 
     private static final String[] DEFAULT_NAMES = {
-            "Lettre paroissiale",
-            "Annonces",
-            "Bénévoles"
+            "Parish newsletter",
+            "Announcements",
+            "Volunteers"
     };
 
     private final ContactListRepository lists;

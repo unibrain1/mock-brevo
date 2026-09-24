@@ -161,7 +161,7 @@ public class EmailCampaignsController {
         String tag = MockData.tag(r);
         String htmlContent = "<html><body><p>Mock campaign body for #" + c.getId() + "</p></body></html>";
         String header = "<p>Mock header</p>";
-        String footer = "<p>Mock footer — <a href=\"{{unsubscribe}}\">se désabonner</a></p>";
+        String footer = "<p>Mock footer — <a href=\"{{unsubscribe}}\">unsubscribe</a></p>";
 
         return new EmailCampaignsResponse.CampaignItem(
                 c.getId(),

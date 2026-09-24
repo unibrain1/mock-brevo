@@ -9,13 +9,13 @@ public final class MockData {
             "Toulouse", "Strasbourg", "Nice", "Rennes", "Montpellier"
     };
     private static final String[] STREETS = {
-            "rue de la Paix", "avenue Victor Hugo", "boulevard Saint-Michel",
-            "rue du Commerce", "avenue des Champs", "rue de la République",
-            "place Bellecour", "rue Nationale", "allée des Tilleuls"
+            "Peace Street", "Victor Hugo Avenue", "Saint Michael Boulevard",
+            "Market Street", "Fields Avenue", "Republic Street",
+            "Bellecour Square", "National Street", "Linden Lane"
     };
     private static final String[] ZIP_PREFIXES = {"75", "69", "13", "33", "44", "59", "31", "67", "06", "35", "34"};
     private static final String[] DOMAINS = {"mailjet-sandbox.com", "sendinblue-relay.com", "brevo-edge.net"};
-    private static final String[] TAGS = {"newsletter", "transactional", "promo", "campagne", "relance"};
+    private static final String[] TAGS = {"newsletter", "transactional", "promo", "campaign", "reminder"};
 
     private MockData() {}
 
