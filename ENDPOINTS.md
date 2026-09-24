@@ -1,5 +1,7 @@
 # Brevo API — Implementation priorities for mock-brevo
 
+**English** | [Français](ENDPOINTS.fr.md)
+
 Prioritized list of the endpoints to mock so that Enoria (`/home/adu/git/enoria`) can run against this local server.
 
 ## Context
@@ -60,6 +62,7 @@ These routes are **not** Brevo endpoints — they are used to inspect/drive the 
 Returns the list of API keys seen so far and, for each one, a summary of the associated account. No auth required (debug/dev endpoint).
 
 Proposed response format:
+
 ```json
 {
   "accounts": [
