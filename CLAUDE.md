@@ -39,7 +39,7 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-review.yml` (Claude PR review, needs the `CLAUDE_CODE_OAUTH_TOKEN` secret). SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review via the official code-review plugin; it enforces the rules in this file) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
@@ -80,6 +80,13 @@ Lazy collections (notably `Contact.lists`) are iterated in controllers during re
 - `GET /mock-status/accounts/{apiKey}/emails` — inspect captured emails for a given tenant (payload + messageId) — this is the hook for test assertions.
 - `POST /mock-webhooks/fire` — push a Brevo event webhook to a target URL. Used to simulate `delivered`, `opened`, `click`, `hard_bounce`, etc. against Enoria's `/callback/brevomail/{key}`.
 
+### Admin UI rules (`src/main/resources/static/`)
+
+- **Every user-visible string goes through `I18N.t('key')`** (or a `data-i18n*` attribute in `index.html`), and the key must exist in **both** the `fr` and `en` dictionaries in `js/i18n.js`. No French or English literals in `app.js`.
+- **Escape dynamic values** inserted into HTML with `esc()`. Only dictionary strings whose key ends in `Html` may be inserted unescaped.
+- **Don't shadow `t`** (the translator) with a local variable in `app.js`.
+- Plain ES2020 in an IIFE with `'use strict'`; no build step, no new runtime dependencies.
+
 ### Request logging
 
 `RequestLoggingFilter` (order = `HIGHEST_PRECEDENCE + 10`) matches `/v3/**` and `/mock-webhooks/**` via `AntPathMatcher` and appends to `RequestLogStore` (synchronized `ArrayDeque`, capped at 500). The filter wraps `chain.doFilter` in a try/finally so errors and 4xx/5xx responses are still captured. The api-key header is masked (first 6 + last 4 chars) before storage — never log raw keys regardless of `MOCK_STATUS_REVEAL_KEYS`. Memory only; ring buffer resets on restart.
@@ -111,4 +118,4 @@ When adding a new Brevo endpoint: (1) add a DTO record in `brevo/dto/` with `@Js
 
 - **Don't enable `AUTO_SERVER=TRUE` on the H2 JDBC URL.** It triggers `NoClassDefFoundError: org/h2/util/NetworkConnectionInfo` under Spring Boot's nested-jar classloader when a second JVM (e.g. parallel tests) tries to connect. The datasource URL in `application.yml` is plain file mode.
 - **Lombok annotation processing** must stay enabled. Entities rely on `@Getter`/`@Setter`.
-- **Don't actually send email.** `POST /v3/smtp/email` stores the payload and returns a synthetic `messageId`. Never wire a real SMTP transport.
+- **Don't actually send email.** `POST /v3/smtp/email` stores the payload and returns a synthetic `messageId`. The only outbound mail path is the opt-in `SmtpForwarder` (`MOCK_SMTP_ENABLED`, off by default), meant for a local catcher such as Mailpit; don't add any other transport or enable it by default.
