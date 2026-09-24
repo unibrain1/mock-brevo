@@ -1,13 +1,14 @@
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project aims
-to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once it
-reaches 1.0.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). From 1.1.0 on, this
+fork (unibrain1/mock-brevo) follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+with its own version numbers; each release notes the upstream
+(c0boleis/mock-brevo) version it is based on.
 
 ## [Unreleased]
 
-Fork (unibrain1/mock-brevo) versioning changes: from 1.1.0 on, versions are the fork's own SemVer and no longer track upstream's; each entry notes its upstream base.
+- Versioning: the fork now uses its own SemVer (this release is its first), recorded upstream base in `pom.xml` `<upstream.version>` and the image label `io.github.unibrain1.upstream-version`.
 
 ## [1.0.0-en.3] — 2026-09-24
 
