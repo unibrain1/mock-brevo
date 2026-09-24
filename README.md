@@ -6,7 +6,7 @@
 
 Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transactional API, designed to stand in for `api.brevo.com` during development and integration testing. Clients swap the base URL; payloads stay identical.
 
-> ⚠️ **Disclaimer.** This project is **not affiliated with, endorsed by, or sponsored by Brevo SAS**. "Brevo" and "Sendinblue" are trademarks of Brevo SAS. This is an independent community tool for local development and integration testing. No Brevo source code is redistributed — every endpoint is re-implemented from the publicly documented API at https://developers.brevo.com/.
+> ⚠️ **Disclaimer.** This project is **not affiliated with, endorsed by, or sponsored by Brevo SAS**. "Brevo" and "Sendinblue" are trademarks of Brevo SAS. This is an independent community tool for local development and integration testing. No Brevo source code is redistributed — every endpoint is re-implemented from the publicly documented API at <https://developers.brevo.com/>.
 
 ## What it does
 

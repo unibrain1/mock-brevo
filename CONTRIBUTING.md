@@ -6,7 +6,7 @@ Thanks for your interest!
 
 The goal of this project is to stay as close as possible to the **real Brevo API response contract**. When reporting or fixing a bug, or adding a new endpoint:
 
-1. **Link to the Brevo reference page** — https://developers.brevo.com/reference/…
+1. **Link to the Brevo reference page** — <https://developers.brevo.com/reference/…>
 2. **Name the SDK version and method** you are calling (e.g. `getbrevo/brevo-php ^4.0`, `TransactionalEmailsApi::sendTransacEmail`).
 3. **Show a minimal reproducer**: the request you send + the response you expect vs what you get.
 

@@ -60,6 +60,7 @@ These routes are **not** Brevo endpoints — they are used to inspect/drive the 
 Returns the list of API keys seen so far and, for each one, a summary of the associated account. No auth required (debug/dev endpoint).
 
 Proposed response format:
+
 ```json
 {
   "accounts": [

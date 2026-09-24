@@ -1,0 +1,11 @@
+{
+  // Correctness over style: long lines, table formatting and inline HTML are allowed.
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false,
+    "MD060": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules/**", "target/**", "HANDOFF.md"]
+}
