@@ -19,6 +19,10 @@
 
     <properties>
         <java.version>25</java.version>
+        <!-- Fork versioning: <version> is this fork's own SemVer; upstream.version is
+             the c0boleis/mock-brevo release it is based on. Update it when merging a
+             new upstream release. Published as an image label by release.yml. -->
+        <upstream.version>1.0.0</upstream.version>
     </properties>
 
     <dependencies>

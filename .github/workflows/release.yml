@@ -35,6 +35,10 @@ jobs:
             echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Read upstream base version
+        id: upstream
+        run: echo "value=$(sed -n 's:.*<upstream.version>\(.*\)</upstream.version>.*:\1:p' pom.xml)" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU (for arm64 cross-build)
         uses: docker/setup-qemu-action@v3
 
@@ -67,15 +71,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            # English-fork releases (v<upstream>-en.<n>) are semver prereleases, so
-            # metadata-action never tags them latest on its own.
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && contains(github.ref_name, '-en.') }}
             type=ref,event=branch
           labels: |
             org.opencontainers.image.title=mock-brevo
             org.opencontainers.image.description=Local mock of the Brevo (ex-Sendinblue) transactional API. Not affiliated with Brevo SAS.
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.vendor=mock-brevo contributors
+            io.github.unibrain1.upstream-version=${{ steps.upstream.outputs.value }}
 
       - name: Build and push
         id: build

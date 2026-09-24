@@ -103,6 +103,16 @@ Defined in `MockBrevoProperties` (`mock-brevo.*` prefix, bound in `application.y
 | `auto-fire-delivered` | `MOCK_AUTO_FIRE_DELIVERED` | `false` | Enables the above |
 | H2 file path | `MOCK_BREVO_DB_PATH` | `./data/brevo` | Controls `jdbc:h2:file:…` location |
 
+## Releasing (this fork)
+
+The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.version>` records the upstream base.
+
+1. In a PR, bump with upstream's script, which updates `pom.xml` and `CHANGELOG.md` without committing: `scripts/new_version.sh 1.1.0 --bump-only -m "…"`. It calls `./mvnw`, so run it where Java 25 is available (or in `eclipse-temurin:25-jdk`). In the changelog entry, state the upstream base.
+2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`.
+3. Only tag forward: re-running an older release moves `latest` back to it.
+
+`remote.upstream.tagOpt` is set to `--no-tags` so fetching upstream never imports its tags (a future upstream `v1.1.0` would clash with the fork's). Use `git fetch upstream --no-tags` in fresh clones. When merging an upstream release, update `<upstream.version>`.
+
 ## Endpoint coverage
 
 The full priority list (and which Enoria call sites drive each) is in `ENDPOINTS.md`. In this repo today:
