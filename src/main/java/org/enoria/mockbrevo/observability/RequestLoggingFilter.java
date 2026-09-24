@@ -46,7 +46,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             return;
         }
 
-        ContentCachingRequestWrapper wreq = new ContentCachingRequestWrapper(request);
+        // Unlimited, as before Spring 7 made the limit mandatory: the log reports the real
+        // body size and truncates only the stored copy (MAX_BODY_BYTES).
+        ContentCachingRequestWrapper wreq = new ContentCachingRequestWrapper(request, Integer.MAX_VALUE);
         ContentCachingResponseWrapper wresp = new ContentCachingResponseWrapper(response);
 
         long start = System.nanoTime();

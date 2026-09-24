@@ -3,4 +3,4 @@ content-type: application/json
 $.error : string
 $.path : string
 $.status : integer
-$.timestamp : string<datetime-offset>
+$.timestamp : string<instant-utc>
