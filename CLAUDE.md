@@ -39,7 +39,7 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review via the official code-review plugin; it enforces the rules in this file) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; its checklist mirrors the rules in this file, and a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
