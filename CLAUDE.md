@@ -108,7 +108,7 @@ Defined in `MockBrevoProperties` (`mock-brevo.*` prefix, bound in `application.y
 The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.version>` records the upstream base.
 
 1. Collect changes under `## [Unreleased]` in `CHANGELOG.md` as you go. In a PR, bump with upstream's script: `scripts/new_version.sh 1.1.0 --bump-only`. Run it **without** `-m`: then it moves the `[Unreleased]` content under the new version (with `-m` it inserts a new section and leaves `[Unreleased]` behind). It updates `pom.xml` and `CHANGELOG.md` without committing, and calls `./mvnw`, so run it where Java 25 is available (or in `eclipse-temurin:25-jdk`). Then edit the entry to state the upstream base, and add the version to the README's "Fork versions" table.
-2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`; `latest` only ever comes from a release tag (a manual `workflow_dispatch` run publishes just a `main` tag).
+2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`; `latest` only ever comes from a release tag (a manual `workflow_dispatch` run from `main` publishes just a `main` tag; its `version` input sets only the `IMAGE_VERSION` build-arg, not the image tags).
 3. Only tag forward: re-running an older release moves `latest` back to it.
 
 `remote.upstream.tagOpt` is set to `--no-tags` so fetching upstream never imports its tags (a future upstream `v1.1.0` would clash with the fork's). Use `git fetch upstream --no-tags` in fresh clones. When merging an upstream release, update `<upstream.version>`.

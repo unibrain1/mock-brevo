@@ -8,7 +8,7 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
-- Versioning: the fork now uses its own SemVer (this release is its first), recorded upstream base in `pom.xml` `<upstream.version>` and the image label `io.github.unibrain1.upstream-version`.
+- Versioning: the fork now uses its own SemVer, starting with this release. The upstream base is recorded in `pom.xml` `<upstream.version>` and in the image label `io.github.unibrain1.upstream-version`.
 
 ## [1.0.0-en.3] — 2026-09-24
 
