@@ -37,7 +37,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Record start time
+        run: echo "REVIEW_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - uses: anthropics/claude-code-action@v1
+        id: review
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/anthropics/claude-code.git
@@ -47,7 +51,41 @@ jobs:
           # diagnosed. Only write-access users trigger this workflow.
           display_report: true
           # The plugin command's own allowed-tools list, plus what its steps need:
-          # Agent/Task to launch the review sub-agents, and read-only file tools
-          # to find and read CLAUDE.md files.
+          # Agent/Task to launch the review sub-agents, TodoWrite (the command
+          # starts with a todo list) and read-only tools to find CLAUDE.md files.
           claude_args: >-
-            --allowedTools "Agent,Task,Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*)"
+            --allowedTools "Agent,Task,TodoWrite,Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*)"
+
+      # The plugin can decide a PR needs no review and stop without commenting.
+      # Always leave a trace on the PR: if Claude posted nothing during this run,
+      # post its final message (and any blocked tools) as a comment.
+      - name: Comment if the review stayed silent
+        if: always() && steps.review.outputs.execution_file != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
+        run: |
+          posted=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments?since=$REVIEW_STARTED" --jq '[.[] | select(.user.login | test("claude"; "i"))] | length')
+          inline=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/comments?since=$REVIEW_STARTED" --jq 'length')
+          if [ "$posted" != "0" ] || [ "$inline" != "0" ]; then
+            echo "Claude commented ($posted comment(s), $inline inline); nothing to add."
+            exit 0
+          fi
+          # -s + flatten reads the file whether it's a JSON array or JSON lines.
+          result=$(jq -rs 'flatten | map(select(.type == "result")) | last | .result // "(no final message)"' "$EXECUTION_FILE")
+          denied=$(jq -rs 'flatten | map(select(.type == "result")) | last | [.permission_denials[]?.tool_name] | unique | join(", ")' "$EXECUTION_FILE")
+          {
+            echo "## Claude code review"
+            echo
+            echo "The review finished without posting findings. Claude's final message:"
+            echo
+            printf '%s\n' "$result" | sed 's/^/> /'
+            if [ -n "$denied" ]; then
+              echo
+              echo "Blocked tools: \`$denied\` (add them to \`--allowedTools\` in \`claude-code-review.yml\` if the review needs them)."
+            fi
+            echo
+            echo "Ask for another pass by commenting \`@claude review this PR\`."
+          } > comment.md
+          gh pr comment "$PR" --body-file comment.md
