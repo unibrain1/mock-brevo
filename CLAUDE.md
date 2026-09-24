@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & run
 
-The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 21 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.9 into `~/.m2/wrapper/`.
+The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 21 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
 
 ```bash
 ./mvnw spring-boot:run                          # run from sources (port 8080, hot path for demos)
