@@ -4,7 +4,7 @@
 [![Java 25](https://img.shields.io/badge/Java-25-orange.svg)](https://adoptium.net/)
 [![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-green.svg)](https://spring.io/projects/spring-boot)
 
-> **English fork.** This repository is a fork of [c0boleis/mock-brevo](https://github.com/c0boleis/mock-brevo), maintained at [unibrain1/mock-brevo](https://github.com/unibrain1/mock-brevo) to provide an English admin UI (with a FR/EN toggle), English sample data and English docs. The translation has been offered upstream in [c0boleis/mock-brevo#10](https://github.com/c0boleis/mock-brevo/pull/10). Releases are tagged `<upstream version>-en.<n>` and published as `ghcr.io/unibrain1/mock-brevo`, e.g. `ghcr.io/unibrain1/mock-brevo:1.0.0-en.1`. For the original project, issues about the mock itself, and the upstream Docker Hub image, see the upstream repository.
+> **English fork.** This repository is a fork of [c0boleis/mock-brevo](https://github.com/c0boleis/mock-brevo), maintained at [unibrain1/mock-brevo](https://github.com/unibrain1/mock-brevo) to provide an English admin UI (with a FR/EN toggle), English sample data and English docs. The translation has been offered upstream in [c0boleis/mock-brevo#10](https://github.com/c0boleis/mock-brevo/pull/10). Releases are tagged `<upstream version>-en.<n>` and published as `ghcr.io/unibrain1/mock-brevo`, e.g. `ghcr.io/unibrain1/mock-brevo:1.0.0-en.2`. For the original project, issues about the mock itself, and the upstream Docker Hub image, see the upstream repository.
 
 Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transactional API, designed to stand in for `api.brevo.com` during development and integration testing. Clients swap the base URL; payloads stay identical.
 
