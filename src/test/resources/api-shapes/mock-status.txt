@@ -1,0 +1,21 @@
+status: 200
+content-type: application/json
+$.accountsCount : integer
+$.accounts[].account.companyName : string
+$.accounts[].account.credits : integer
+$.accounts[].account.email : string
+$.accounts[].account.firstName : string
+$.accounts[].account.lastName : string
+$.accounts[].account.organizationId : string
+$.accounts[].apiKey : string
+$.accounts[].apiKeyPreview : string
+$.accounts[].counters.campaigns : integer
+$.accounts[].counters.contacts : integer
+$.accounts[].counters.emailsSent : integer
+$.accounts[].counters.folders : integer
+$.accounts[].counters.lists : integer
+$.accounts[].counters.senders : integer
+$.accounts[].counters.templates : integer
+$.accounts[].createdAt : string<instant-utc>
+$.accounts[].lastSeenAt : string<instant-utc>
+$.service : string

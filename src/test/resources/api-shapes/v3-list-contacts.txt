@@ -1,0 +1,13 @@
+status: 200
+content-type: application/json
+$.contacts[].attributes.FIRST_NAME : string
+$.contacts[].attributes.LAST_NAME : string
+$.contacts[].createdAt : string<instant-utc>
+$.contacts[].email : string
+$.contacts[].emailBlacklisted : boolean
+$.contacts[].id : integer
+$.contacts[].listIds[] : integer
+$.contacts[].listUnsubscribed : []
+$.contacts[].modifiedAt : string<instant-utc>
+$.contacts[].smsBlacklisted : boolean
+$.count : integer

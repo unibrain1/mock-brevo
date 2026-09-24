@@ -1,0 +1,9 @@
+status: 200
+content-type: application/json
+$.senders[].active : boolean
+$.senders[].email : string
+$.senders[].id : integer
+$.senders[].ips[].domain : string
+$.senders[].ips[].ip : string
+$.senders[].ips[].weight : integer
+$.senders[].name : string

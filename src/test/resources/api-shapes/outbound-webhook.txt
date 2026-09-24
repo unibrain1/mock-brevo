@@ -1,0 +1,8 @@
+content-type: application/json
+$.date : string<instant-utc>
+$.email : string
+$.event : string
+$.message-id : string
+$.reason : string
+$.tags : []
+$.ts : integer

@@ -1,0 +1,22 @@
+status: 200
+content-type: application/json
+$.count : integer
+$.requests[].apiKeyPreview : string
+$.requests[].at : string<instant-utc>
+$.requests[].durationMs : integer
+$.requests[].id : integer
+$.requests[].method : string
+$.requests[].path : string
+$.requests[].query : null
+$.requests[].requestBody : null
+$.requests[].requestHeaders : null
+$.requests[].requestSize : integer
+$.requests[].requestSize : null
+$.requests[].requestTruncated : boolean
+$.requests[].responseBody : null
+$.requests[].responseHeaders : null
+$.requests[].responseSize : integer
+$.requests[].responseSize : null
+$.requests[].responseTruncated : boolean
+$.requests[].status : integer
+$.total : integer

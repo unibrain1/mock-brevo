@@ -1,0 +1,9 @@
+status: 200
+content-type: application/json
+$.count : integer
+$.lists[].folderId : integer
+$.lists[].id : integer
+$.lists[].name : string
+$.lists[].totalBlacklisted : integer
+$.lists[].totalSubscribers : integer
+$.lists[].uniqueSubscribers : integer

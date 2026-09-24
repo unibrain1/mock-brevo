@@ -1,0 +1,27 @@
+status: 200
+content-type: application/json
+$.address.city : string
+$.address.country : string
+$.address.street : string
+$.address.zipCode : string
+$.companyName : string
+$.dateTimePreferences.dateFormat : string
+$.dateTimePreferences.timeFormat : string
+$.dateTimePreferences.timezone : string
+$.email : string
+$.enterprise : boolean
+$.firstName : string
+$.lastName : string
+$.marketingAutomation.enabled : boolean
+$.marketingAutomation.key : string
+$.organization_id : string
+$.plan[].credits : integer
+$.plan[].creditsType : string
+$.plan[].endDate : string<date>
+$.plan[].startDate : string<date>
+$.plan[].type : string
+$.relay.data.port : integer
+$.relay.data.relay : string
+$.relay.data.userName : string
+$.relay.enabled : boolean
+$.user_id : integer

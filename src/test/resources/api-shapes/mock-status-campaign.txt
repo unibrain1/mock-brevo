@@ -1,0 +1,20 @@
+status: 200
+content-type: application/json
+$.account.apiKey : string
+$.account.apiKeyPreview : string
+$.account.email : string
+$.account.firstName : string
+$.account.lastName : string
+$.account.organizationId : string
+$.createdAt : string<instant-utc>
+$.deliveredCount : integer
+$.id : integer
+$.name : string
+$.recipientListIdsCsv : string
+$.replyTo : string
+$.senderEmail : string
+$.senderName : string
+$.sentDate : string<instant-utc>
+$.status : string
+$.subject : string
+$.utmCampaign : string

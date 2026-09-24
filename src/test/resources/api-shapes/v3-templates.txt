@@ -1,0 +1,16 @@
+status: 200
+content-type: application/json
+$.count : integer
+$.templates[].createdAt : string<instant-utc>
+$.templates[].htmlContent : string
+$.templates[].id : integer
+$.templates[].isActive : boolean
+$.templates[].modifiedAt : string<instant-utc>
+$.templates[].name : string
+$.templates[].replyTo : string
+$.templates[].sender.email : string
+$.templates[].sender.name : string
+$.templates[].subject : string
+$.templates[].tag : string
+$.templates[].testSent : boolean
+$.templates[].toField : string
