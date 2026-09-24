@@ -35,7 +35,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
  *
  * Each case records the HTTP status, content type and the "shape" of the body:
  * every JSON path with its value type, strings classified by date format. Values
- * themselves vary (ids, timestamps, faker data) and are not compared.
+ * themselves vary (ids, timestamps, faker data) and are not compared. Field order
+ * is deliberately not checked either (paths are sorted): clients such as the PHP
+ * SDK read by key, and Jackson 3 orders properties differently from Jackson 2.
  *
  * Snapshots live in src/test/resources/api-shapes/. After an intentional change,
  * regenerate them with {@code ./mvnw test -Dtest=ApiShapeSnapshotTest -Dsnapshots.update=true}
@@ -71,12 +73,13 @@ class ApiShapeSnapshotTest {
         // Provisioning + read endpoints on a fresh tenant (seeded defaults)
         capture("v3-account", "GET", "/v3/account", null, key);
         capture("v3-senders", "GET", "/v3/senders", null, key);
-        capture("v3-folders", "GET", "/v3/contacts/folders", null, key);
+        String foldersJson = capture("v3-folders", "GET", "/v3/contacts/folders", null, key);
+        long folderId = Long.parseLong(firstNumber(foldersJson, "id"));
 
         // Writes
         capture("v3-folders-create", "POST", "/v3/contacts/folders", "{\"name\":\"Snapshots\"}", key);
         String listJson = capture("v3-lists-create", "POST", "/v3/contacts/lists",
-                "{\"name\":\"Snapshot list\",\"folderId\":1}", key);
+                "{\"name\":\"Snapshot list\",\"folderId\":" + folderId + "}", key);
         long listId = Long.parseLong(firstNumber(listJson, "id"));
         capture("v3-contacts-import", "POST", "/v3/contacts/import",
                 "{\"fileBody\":\"EMAIL,FIRST_NAME,LAST_NAME\\nada@example.com,Ada,Lovelace\\nalan@example.com,Alan,Turing\","
