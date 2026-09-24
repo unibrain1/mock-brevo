@@ -1,11 +1,26 @@
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project aims
-to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once it
-reaches 1.0.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). From 1.1.0 on, this
+fork (unibrain1/mock-brevo) follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+with its own version numbers; each release notes the upstream
+(c0boleis/mock-brevo) version it is based on.
 
 ## [Unreleased]
+
+- Versioning: the fork now uses its own SemVer, starting with this release. The upstream base is recorded in `pom.xml` `<upstream.version>` and in the image label `io.github.unibrain1.upstream-version`.
+
+## [1.0.0-en.3] — 2026-09-24
+
+Fork release, based on upstream 1.0.0. First release tagged `latest`; README quick start uses the fork's image.
+
+## [1.0.0-en.2] — 2026-09-24
+
+Fork release, based on upstream 1.0.0. Spring Boot 3.3.6 → 4.1.1 and Java 21 → 25 (unibrain1/mock-brevo#8); JSON contract unchanged (snapshot-tested).
+
+## [1.0.0-en.1] — 2026-09-23
+
+Fork release, based on upstream 1.0.0. English admin UI with FR/EN toggle, English sample data and docs; optional Docker Hub publishing; tests, linting and CI.
 
 ## [1.0.0] — 2026-05-06
 

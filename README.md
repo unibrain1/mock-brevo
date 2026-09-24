@@ -4,7 +4,7 @@
 [![Java 25](https://img.shields.io/badge/Java-25-orange.svg)](https://adoptium.net/)
 [![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-green.svg)](https://spring.io/projects/spring-boot)
 
-> **English fork.** This repository is a fork of [c0boleis/mock-brevo](https://github.com/c0boleis/mock-brevo), maintained at [unibrain1/mock-brevo](https://github.com/unibrain1/mock-brevo) to provide an English admin UI (with a FR/EN toggle), English sample data and English docs. The translation has been offered upstream in [c0boleis/mock-brevo#10](https://github.com/c0boleis/mock-brevo/pull/10). Releases are tagged `<upstream version>-en.<n>` and published as `ghcr.io/unibrain1/mock-brevo`, e.g. `ghcr.io/unibrain1/mock-brevo:1.0.0-en.2`. For the original project, issues about the mock itself, and the upstream Docker Hub image, see the upstream repository.
+> **English fork.** This repository is a fork of [c0boleis/mock-brevo](https://github.com/c0boleis/mock-brevo), maintained at [unibrain1/mock-brevo](https://github.com/unibrain1/mock-brevo) to provide an English admin UI (with a FR/EN toggle), English sample data and English docs. The translation has been offered upstream in [c0boleis/mock-brevo#10](https://github.com/c0boleis/mock-brevo/pull/10). Since its features have diverged from upstream, the fork uses its own [semantic version](#fork-versions) from 1.1.0 on, and each release records which upstream version it's based on. Current release: `ghcr.io/unibrain1/mock-brevo:1.0.0-en.3` (also `latest`). For the original project, issues about the mock itself, and the upstream Docker Hub image, see the upstream repository.
 
 Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transactional API, designed to stand in for `api.brevo.com` during development and integration testing. Clients swap the base URL; payloads stay identical.
 
@@ -132,6 +132,19 @@ All settings are environment variables, sensible defaults for dev:
 The admin web UI is available in **French** and **English**. The initial language follows the browser (`navigator.language` starting with `fr` → French, anything else → English). The `FR` / `EN` button in the header switches languages, and the choice is saved in `localStorage` (`mock-brevo-lang`). All UI strings live in [`src/main/resources/static/js/i18n.js`](src/main/resources/static/js/i18n.js).
 
 > **AI-assisted translation.** The English translation (UI strings, faker sample data, and [`ENDPOINTS.md`](ENDPOINTS.md); the French original is kept as [`ENDPOINTS.fr.md`](ENDPOINTS.fr.md)) was done with [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant. Corrections from native speakers of either language are welcome: open an issue or a PR against `i18n.js`.
+
+## Fork versions
+
+This fork has its own [Semantic Versioning](https://semver.org/): new features bump the minor version, fixes the patch version, breaking API changes the major version. Its version numbers are independent of upstream's, so fork `1.1.0` is **not** upstream `1.1.0`. Each release records the upstream version it's based on in the [CHANGELOG](CHANGELOG.md) and in the image label `io.github.unibrain1.upstream-version`.
+
+Images are published as `ghcr.io/unibrain1/mock-brevo:<version>`, plus `<major>.<minor>`, `<major>` and `latest`. Pin a full version in anything automated.
+
+| Fork version | Based on upstream | Notes |
+|---|---|---|
+| `1.0.0-en.1` | 1.0.0 | English UI and sample data (older `<upstream>-en.<n>` scheme) |
+| `1.0.0-en.2` | 1.0.0 | Spring Boot 4.1, Java 25 |
+| `1.0.0-en.3` | 1.0.0 | First release tagged `latest` |
+| `1.1.0` *(unreleased)* | 1.0.0 | Planned: ElanRegistry compatibility (event report, blocked contacts, realistic webhooks) |
 
 ## Contributing
 
