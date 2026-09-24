@@ -1,0 +1,7 @@
+status: 201
+content-type: application/json
+$.id : integer
+$.name : string
+$.status : string
+$.subject : string
+$.utmCampaign : string

@@ -1,0 +1,4 @@
+status: 401
+content-type: application/json
+$.code : string
+$.message : string

@@ -1,8 +1,8 @@
 # mock-brevo
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
-[![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green.svg)](https://spring.io/projects/spring-boot)
+[![Java 25](https://img.shields.io/badge/Java-25-orange.svg)](https://adoptium.net/)
+[![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-green.svg)](https://spring.io/projects/spring-boot)
 
 > **English fork.** This repository is a fork of [c0boleis/mock-brevo](https://github.com/c0boleis/mock-brevo), maintained at [unibrain1/mock-brevo](https://github.com/unibrain1/mock-brevo) to provide an English admin UI (with a FR/EN toggle), English sample data and English docs. The translation has been offered upstream in [c0boleis/mock-brevo#10](https://github.com/c0boleis/mock-brevo/pull/10). Releases are tagged `<upstream version>-en.<n>` and published as `ghcr.io/unibrain1/mock-brevo`, e.g. `ghcr.io/unibrain1/mock-brevo:1.0.0-en.1`. For the original project, issues about the mock itself, and the upstream Docker Hub image, see the upstream repository.
 
@@ -56,7 +56,7 @@ volumes:
 
 ### From source
 
-Requires JDK 21. Maven is wrapped (`./mvnw`) — no system install needed.
+Requires JDK 25. Maven is wrapped (`./mvnw`) — no system install needed.
 
 ```bash
 ./mvnw spring-boot:run                    # dev profile, SMTP forward ON (localhost:1025)

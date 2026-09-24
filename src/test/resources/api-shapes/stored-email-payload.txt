@@ -1,0 +1,10 @@
+$.cc[].email : string
+$.htmlContent : string
+$.params.a : integer
+$.replyTo.email : string
+$.sender.email : string
+$.sender.name : string
+$.subject : string
+$.tags[] : string
+$.to[].email : string
+$.to[].name : string

@@ -1,0 +1,17 @@
+status: 200
+content-type: application/json
+$.account.apiKey : string
+$.account.apiKeyPreview : string
+$.account.email : string
+$.account.firstName : string
+$.account.lastName : string
+$.contactsCount : integer
+$.contacts[].email : string
+$.contacts[].emailBlacklisted : boolean
+$.contacts[].firstName : string
+$.contacts[].id : integer
+$.contacts[].lastName : string
+$.folderId : integer
+$.folderName : string
+$.id : integer
+$.name : string

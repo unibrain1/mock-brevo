@@ -1,0 +1,11 @@
+status: 200
+content-type: application/json
+$.campaigns[].createdAt : string<instant-utc>
+$.campaigns[].deliveredCount : integer
+$.campaigns[].id : integer
+$.campaigns[].name : string
+$.campaigns[].sentDate : string<instant-utc>
+$.campaigns[].status : string
+$.campaigns[].subject : string
+$.campaigns[].utmCampaign : string
+$.count : integer

@@ -1,0 +1,12 @@
+status: 200
+content-type: application/json
+$.count : integer
+$.emails[].id : integer
+$.emails[].messageId : string
+$.emails[].payload : string
+$.emails[].recipients : string
+$.emails[].replyTo : string
+$.emails[].senderEmail : string
+$.emails[].senderName : string
+$.emails[].sentAt : string<instant-utc>
+$.emails[].subject : string

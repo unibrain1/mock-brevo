@@ -9,8 +9,12 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties(MockBrevoProperties.class)
 public class AppConfig {
 
+    /**
+     * Built from Spring Boot's builder so webhook payloads are serialized with the
+     * same JSON mapper configuration as the /v3 responses.
+     */
     @Bean
-    public RestClient restClient() {
-        return RestClient.create();
+    public RestClient restClient(RestClient.Builder builder) {
+        return builder.build();
     }
 }
