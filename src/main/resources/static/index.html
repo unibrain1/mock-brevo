@@ -42,19 +42,22 @@
   <div class="status">
     <span class="dot" id="healthDot" title="auto-refresh"></span>
     <span id="healthText">–</span>
-    <button id="themeToggle" class="theme-toggle" type="button" title="Basculer thème clair / sombre">
+    <button id="themeToggle" class="theme-toggle" type="button" data-i18n-title="theme.toggleTitle" title="Basculer thème clair / sombre">
       <span class="ic">🌙</span><span id="themeLabel">sombre</span>
+    </button>
+    <button id="langToggle" class="theme-toggle" type="button" data-i18n-title="lang.toggleTitle" title="Changer de langue (FR / EN)">
+      <span id="langLabel">FR</span>
     </button>
   </div>
 </header>
 
 <nav class="tabs">
-  <button data-tab="accounts" class="active">Comptes</button>
-  <button data-tab="requests">Appels REST</button>
+  <button data-tab="accounts" class="active" data-i18n="tab.accounts">Comptes</button>
+  <button data-tab="requests" data-i18n="tab.requests">Appels REST</button>
   <div class="spacer"></div>
   <div class="controls">
     <label><input type="checkbox" id="autoRefresh" checked> auto</label>
-    <input type="text" id="filter" placeholder="Filtrer (clé API, chemin…)">
+    <input type="text" id="filter" data-i18n-placeholder="nav.filterPlaceholder" placeholder="Filtrer (clé API, chemin…)">
   </div>
 </nav>
 
@@ -62,20 +65,21 @@
   <!-- Deep-link detail banner (shown when URL is /marketing-campaign/edit/X or /contact/list/id/X) -->
   <section id="deepLinkView" style="display:none">
     <div class="deep-header">
-      <a href="/" class="btn-action" title="Retour à l'accueil">← Accueil</a>
-      <div id="deepLinkTitle">Chargement…</div>
+      <a href="/" class="btn-action" data-i18n-title="common.backHome" title="Retour à l'accueil">← <span data-i18n="common.home">Accueil</span></a>
+      <div id="deepLinkTitle" data-i18n="common.loading">Chargement…</div>
     </div>
     <div id="deepLinkBody"></div>
   </section>
 
   <section id="accounts" class="active">
     <div class="hint hint-with-action">
-      <div>
+      <div data-i18n-html="accounts.hintHtml">
         Envoyez un appel vers <code>http://localhost:8080/v3/account</code> avec un header
         <code>api-key: &lt;votre-clé&gt;</code> pour provisionner un compte.
         Chaque nouveau compte reçoit automatiquement <strong>2 campagnes par défaut</strong>.
       </div>
       <button id="resetAllBtn" class="btn-action btn-danger" type="button"
+        data-i18n-title="accounts.resetTitle" data-i18n="accounts.resetLabel"
         title="Supprimer tous les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs et emails — irréversible">
         Tout réinitialiser
       </button>
@@ -83,39 +87,39 @@
     <table>
       <thead>
         <tr>
-          <th>Clé API</th>
-          <th>Identité</th>
-          <th>Compteurs</th>
-          <th>Créé</th>
-          <th>Vu dernier</th>
-          <th>Actions</th>
+          <th data-i18n="accounts.col.apiKey">Clé API</th>
+          <th data-i18n="accounts.col.identity">Identité</th>
+          <th data-i18n="accounts.col.counters">Compteurs</th>
+          <th data-i18n="accounts.col.created">Créé</th>
+          <th data-i18n="accounts.col.lastSeen">Vu dernier</th>
+          <th data-i18n="accounts.col.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="accountsBody">
-        <tr><td colspan="6" class="empty">Chargement…</td></tr>
+        <tr><td colspan="6" class="empty" data-i18n="common.loading">Chargement…</td></tr>
       </tbody>
     </table>
   </section>
 
   <section id="requests">
-    <div class="hint">
+    <div class="hint" data-i18n-html="requests.hintHtml">
       Buffer mémoire des derniers appels sur <code>/v3/**</code> et <code>/mock-webhooks/**</code>
       (limite 500). Cliquez une ligne pour voir headers et body.
     </div>
     <table>
       <thead>
         <tr>
-          <th style="width:170px">Horodatage</th>
-          <th style="width:80px">Méthode</th>
-          <th>Chemin</th>
-          <th style="width:140px">Clé API</th>
-          <th style="width:70px">Status</th>
-          <th style="width:90px">Durée</th>
-          <th style="width:90px">Taille</th>
+          <th style="width:170px" data-i18n="requests.col.time">Horodatage</th>
+          <th style="width:80px" data-i18n="requests.col.method">Méthode</th>
+          <th data-i18n="requests.col.path">Chemin</th>
+          <th style="width:140px" data-i18n="requests.col.apiKey">Clé API</th>
+          <th style="width:70px" data-i18n="requests.col.status">Status</th>
+          <th style="width:90px" data-i18n="requests.col.duration">Durée</th>
+          <th style="width:90px" data-i18n="requests.col.size">Taille</th>
         </tr>
       </thead>
       <tbody id="requestsBody">
-        <tr><td colspan="7" class="empty">Chargement…</td></tr>
+        <tr><td colspan="7" class="empty" data-i18n="common.loading">Chargement…</td></tr>
       </tbody>
     </table>
   </section>
@@ -124,38 +128,39 @@
 <!-- Campaign creation modal -->
 <div id="campaign-modal" class="modal-overlay" role="dialog" aria-modal="true">
   <div class="modal">
-    <h3>Nouvelle campagne <code id="campaign-modal-key"></code></h3>
+    <h3><span data-i18n="modal.newCampaign">Nouvelle campagne</span> <code id="campaign-modal-key"></code></h3>
     <form id="campaign-form">
-      <label>Nom
-        <input name="name" maxlength="200" placeholder="Newsletter janvier 2026"/>
-        <span class="muted-hint">laissé vide → nom aléatoire</span>
+      <label><span data-i18n="modal.name">Nom</span>
+        <input name="name" maxlength="200" data-i18n-placeholder="modal.namePlaceholder" placeholder="Newsletter janvier 2026"/>
+        <span class="muted-hint" data-i18n="modal.nameHint">laissé vide → nom aléatoire</span>
       </label>
-      <label>Sujet
-        <input name="subject" maxlength="500" placeholder="Vos dernières actualités"/>
-        <span class="muted-hint">laissé vide → sujet aléatoire</span>
+      <label><span data-i18n="modal.subject">Sujet</span>
+        <input name="subject" maxlength="500" data-i18n-placeholder="modal.subjectPlaceholder" placeholder="Vos dernières actualités"/>
+        <span class="muted-hint" data-i18n="modal.subjectHint">laissé vide → sujet aléatoire</span>
       </label>
-      <label>Statut
+      <label><span data-i18n="modal.status">Statut</span>
         <select name="status">
-          <option value="sent" selected>sent (avec stats générées)</option>
-          <option value="draft">draft (stats nulles)</option>
+          <option value="sent" selected data-i18n="modal.statusSent">sent (avec stats générées)</option>
+          <option value="draft" data-i18n="modal.statusDraft">draft (stats nulles)</option>
         </select>
       </label>
-      <label>UTM campaign
-        <input name="utmCampaign" maxlength="200" placeholder="campagne-2026-q2"/>
+      <label><span data-i18n="modal.utm">UTM campaign</span>
+        <input name="utmCampaign" maxlength="200" data-i18n-placeholder="modal.utmPlaceholder" placeholder="campagne-2026-q2"/>
       </label>
-      <label>Listes (IDs CSV)
-        <input name="listIdsCsv" maxlength="200" placeholder="ex: 1,2"/>
-        <span class="muted-hint">optionnel — sépare les IDs par une virgule</span>
+      <label><span data-i18n="modal.lists">Listes (IDs CSV)</span>
+        <input name="listIdsCsv" maxlength="200" data-i18n-placeholder="modal.listsPlaceholder" placeholder="ex: 1,2"/>
+        <span class="muted-hint" data-i18n="modal.listsHint">optionnel — sépare les IDs par une virgule</span>
       </label>
       <div id="campaign-modal-error" class="modal-error" style="display:none"></div>
       <div class="modal-actions">
-        <button type="button" class="btn-action" id="campaign-cancel">Annuler</button>
-        <button type="submit" class="btn-action btn-primary">Créer</button>
+        <button type="button" class="btn-action" id="campaign-cancel" data-i18n="modal.cancel">Annuler</button>
+        <button type="submit" class="btn-action btn-primary" data-i18n="modal.create">Créer</button>
       </div>
     </form>
   </div>
 </div>
 
+<script src="/js/i18n.js" defer></script>
 <script src="/js/app.js" defer></script>
 </body>
 </html>

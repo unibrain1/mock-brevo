@@ -3,6 +3,10 @@
 
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => document.querySelectorAll(s);
+  const t = I18N.t;
+
+  // translate static markup before anything else renders
+  I18N.applyStatic();
 
   // ============================================================
   // THEME (dark / light) — bootstrap script in <head> already set
@@ -16,7 +20,7 @@
     const ic = $('#themeToggle .ic');
     const label = $('#themeLabel');
     if (ic) ic.textContent = theme === 'light' ? '☀️' : '🌙';
-    if (label) label.textContent = theme === 'light' ? 'clair' : 'sombre';
+    if (label) label.textContent = t(theme === 'light' ? 'theme.light' : 'theme.dark');
     // Monaco has a global theme; switching it updates all live editors
     if (window.__monacoReady) {
       window.__monacoReady.then(m => {
@@ -53,19 +57,20 @@
   // ============================================================
   const fmtRelative = (isoStr) => {
     if (!isoStr) return '';
-    const t = new Date(isoStr).getTime();
-    const d = Date.now() - t;
-    if (d < 1500) return "à l'instant";
-    if (d < 60_000) return Math.round(d / 1000) + ' s';
-    if (d < 3_600_000) return Math.round(d / 60_000) + ' min';
-    if (d < 86_400_000) return Math.round(d / 3_600_000) + ' h';
-    return Math.round(d / 86_400_000) + ' j';
+    const ts = new Date(isoStr).getTime();
+    const d = Date.now() - ts;
+    if (d < 1500) return t('time.justNow');
+    if (d < 60_000) return t('time.seconds', { n: Math.round(d / 1000) });
+    if (d < 3_600_000) return t('time.minutes', { n: Math.round(d / 60_000) });
+    if (d < 86_400_000) return t('time.hours', { n: Math.round(d / 3_600_000) });
+    return t('time.days', { n: Math.round(d / 86_400_000) });
   };
 
   const fmtTime = (isoStr) => {
     if (!isoStr) return '';
     const d = new Date(isoStr);
-    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const locale = I18N.lang() === 'fr' ? 'fr-FR' : 'en-GB';
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
       + '.' + String(d.getMilliseconds()).padStart(3, '0');
   };
 
@@ -279,7 +284,7 @@
     const rows = (data.accounts || []).filter(a =>
       matchesFilter([a.apiKey, a.apiKeyPreview, a.account?.email]));
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucun compte — envoyez un appel pour provisionner.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">${esc(t('accounts.empty'))}</td></tr>`;
       return;
     }
     tbody.innerHTML = rows.map(a => {
@@ -301,22 +306,22 @@
           const openNow = accountDrilldown.get(a.apiKey) === item.drill;
           return `<button type="button" class="counter counter-drill${zero}${openNow ? ' open' : ''}"
             data-drill="${item.drill}" data-api-key="${apiKeyAttr}"
-            title="Afficher ${item.label}">${item.label}:${v}</button>`;
+            title="${esc(t('accounts.show', { what: item.label }))}">${item.label}:${v}</button>`;
         }
         return `<span class="counter${zero}">${item.label}:${v}</span>`;
       }).join('');
       const key = a.apiKey
         ? `<code>${esc(a.apiKey)}</code>`
-        : `<code>${esc(a.apiKeyPreview)}</code> <span class="muted">masquée</span>`;
+        : `<code>${esc(a.apiKeyPreview)}</code> <span class="muted">${esc(t('common.masked'))}</span>`;
       const acct = a.account || {};
       const actions = a.apiKey
-        ? `<button class="btn-action" data-new-campaign-for="${apiKeyAttr}" title="Créer une nouvelle campagne">+ Campagne</button>`
-        : `<span class="muted">clé masquée</span>`;
+        ? `<button class="btn-action" data-new-campaign-for="${apiKeyAttr}" title="${esc(t('accounts.newCampaignTitle'))}">${esc(t('accounts.newCampaign'))}</button>`
+        : `<span class="muted">${esc(t('common.maskedKey'))}</span>`;
       const drill = a.apiKey ? accountDrilldown.get(a.apiKey) : null;
       const drillRow = drill
         ? `<tr class="drill-row" data-for="${apiKeyAttr}"><td colspan="6">
             <div class="drill-wrap" data-api-key="${apiKeyAttr}" data-kind="${drill}">
-              <div class="muted" style="padding:12px">Chargement…</div>
+              <div class="muted" style="padding:12px">${esc(t('common.loading'))}</div>
             </div>
           </td></tr>`
         : '';
@@ -342,7 +347,7 @@
       btn.addEventListener('click', () => toggleAccountDrill(btn.dataset.apiKey, btn.dataset.drill));
     });
 
-    // Populate any drill rows still showing "Chargement…"
+    // Populate any drill rows still showing the loading placeholder
     tbody.querySelectorAll('.drill-wrap').forEach(el => {
       if (!el.dataset.loaded) {
         loadDrilldown(el.dataset.apiKey, el.dataset.kind, el);
@@ -371,32 +376,32 @@
         container.innerHTML = renderAccountLists(data);
       }
     } catch (e) {
-      container.innerHTML = `<div class="muted" style="padding:12px;color:var(--err)">Erreur: ${esc(e.message)}</div>`;
+      container.innerHTML = `<div class="muted" style="padding:12px;color:var(--err)">${esc(t('common.errorPrefix', { msg: e.message }))}</div>`;
     }
   };
 
   const renderAccountCampaigns = (data) => {
     const items = data.campaigns || [];
     if (!items.length) {
-      return '<div class="empty" style="padding:16px">Aucune campagne.</div>';
+      return `<div class="empty" style="padding:16px">${esc(t('drill.noCampaigns'))}</div>`;
     }
     const rows = items.map(c => `
       <tr>
         <td class="mono muted">#${esc(c.id)}</td>
-        <td><a href="/marketing-campaign/edit/${esc(c.id)}" class="deep-link">${esc(c.name || '(sans nom)')}</a></td>
+        <td><a href="/marketing-campaign/edit/${esc(c.id)}" class="deep-link">${esc(c.name || t('common.unnamed'))}</a></td>
         <td class="muted">${esc(c.subject || '')}</td>
         <td><span class="badge status-${esc(c.status || 'draft')}">${esc(c.status || 'draft')}</span></td>
         <td class="mono muted">${c.deliveredCount != null ? esc(c.deliveredCount) : '—'}</td>
         <td class="mono muted">${esc(c.utmCampaign || '')}</td>
-        <td class="mono muted" title="${esc(c.sentDate || '')}">${c.sentDate ? fmtRelative(c.sentDate) : '<span class="muted">jamais envoyée</span>'}</td>
+        <td class="mono muted" title="${esc(c.sentDate || '')}">${c.sentDate ? fmtRelative(c.sentDate) : `<span class="muted">${esc(t('drill.neverSent'))}</span>`}</td>
       </tr>
     `).join('');
     return `
       <div class="drill-inner">
-        <div class="drill-title">Campagnes (${esc(data.count)}) — cliquer sur le nom pour ouvrir la vue détail</div>
+        <div class="drill-title">${esc(t('drill.campaignsTitle', { n: data.count }))}</div>
         <table>
           <thead>
-            <tr><th>ID</th><th>Nom</th><th>Sujet</th><th>Statut</th><th>Delivered</th><th>UTM</th><th>Envoyée</th></tr>
+            <tr>${['id', 'name', 'subject', 'status', 'delivered', 'utm', 'sent'].map(k => `<th>${esc(t('drill.col.' + k))}</th>`).join('')}</tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
@@ -406,22 +411,22 @@
   const renderAccountLists = (data) => {
     const items = data.lists || [];
     if (!items.length) {
-      return '<div class="empty" style="padding:16px">Aucune liste.</div>';
+      return `<div class="empty" style="padding:16px">${esc(t('drill.noLists'))}</div>`;
     }
     const rows = items.map(l => `
       <tr>
         <td class="mono muted">#${esc(l.id)}</td>
-        <td><a href="/contact/list/id/${esc(l.id)}" class="deep-link">${esc(l.name || '(sans nom)')}</a></td>
+        <td><a href="/contact/list/id/${esc(l.id)}" class="deep-link">${esc(l.name || t('common.unnamed'))}</a></td>
         <td class="mono muted">${esc(l.uniqueSubscribers)}</td>
         <td class="muted">${l.folderName ? esc(l.folderName) + ' <span class="muted">#' + esc(l.folderId) + '</span>' : '<span class="muted">—</span>'}</td>
       </tr>
     `).join('');
     return `
       <div class="drill-inner">
-        <div class="drill-title">Listes (${esc(data.count)}) — cliquer sur le nom pour ouvrir la vue détail</div>
+        <div class="drill-title">${esc(t('drill.listsTitle', { n: data.count }))}</div>
         <table>
           <thead>
-            <tr><th>ID</th><th>Nom</th><th>Contacts</th><th>Dossier</th></tr>
+            <tr>${['id', 'name', 'contacts', 'folder'].map(k => `<th>${esc(t('drill.col.' + k))}</th>`).join('')}</tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
@@ -432,7 +437,7 @@
   // RENDERERS — Requests tab
   // ============================================================
   const renderHeaders = (h) => {
-    if (!h || !Object.keys(h).length) return '<div class="empty-body">Aucun header.</div>';
+    if (!h || !Object.keys(h).length) return `<div class="empty-body">${esc(t('requests.noHeaders'))}</div>`;
     return `<div class="headers">` +
       Object.entries(h).map(([k, v]) =>
         `<div class="hk">${esc(k)}</div><div class="hv">${esc(v)}</div>`).join('') +
@@ -440,12 +445,12 @@
   };
 
   const renderBody = (text, truncated, contentType, entryId, which) => {
-    if (text == null || text === '') return '<div class="empty-body">Aucun body.</div>';
-    const tag = truncated ? `<span class="truncated">tronqué à 16 KiB</span>` : '';
+    if (text == null || text === '') return `<div class="empty-body">${esc(t('requests.noBody'))}</div>`;
+    const tag = truncated ? `<span class="truncated">${esc(t('requests.truncated'))}</span>` : '';
     const actions = `
       <div class="body-actions">
         ${tag}
-        <button type="button" class="copy-btn" data-copy-id="${entryId}" data-copy-which="${which}" title="Copier dans le presse-papier">Copier</button>
+        <button type="button" class="copy-btn" data-copy-id="${entryId}" data-copy-which="${which}" title="${esc(t('requests.copyTitle'))}">${esc(t('requests.copy'))}</button>
       </div>`;
     if (isJson(contentType)) {
       const pretty = prettifyJson(text);
@@ -454,7 +459,7 @@
       return `
         <div class="body-wrap">
           ${actions}
-          <div class="monaco-body pending${sizeClass}" data-monaco-id="${entryId}" data-monaco-which="${which}">Chargement de l'éditeur…</div>
+          <div class="monaco-body pending${sizeClass}" data-monaco-id="${entryId}" data-monaco-which="${which}">${esc(t('requests.loadingEditor'))}</div>
         </div>`;
     }
     return `
@@ -468,18 +473,18 @@
     const reqCt = entry.requestHeaders && entry.requestHeaders['content-type'];
     const respCt = entry.responseHeaders && entry.responseHeaders['content-type'];
     const docUrl = docUrlFor(entry.method, entry.path);
-    const docLink = docUrl ? `<a class="doc-link" href="${docUrl}" target="_blank" rel="noopener" title="Documentation Brevo">doc ↗</a>` : '';
+    const docLink = docUrl ? `<a class="doc-link" href="${docUrl}" target="_blank" rel="noopener" title="${esc(t('common.brevoDocs'))}">doc ↗</a>` : '';
     return `
       <div class="detail-inner">
         <div class="block">
-          <h3>Requête <span class="tag">${esc(entry.method)} ${esc(entry.path)}</span>${docLink}</h3>
+          <h3>${esc(t('requests.request'))} <span class="tag">${esc(entry.method)} ${esc(entry.path)}</span>${docLink}</h3>
           <h4>Headers</h4>
           ${renderHeaders(entry.requestHeaders)}
           <h4>Body${entry.requestSize != null ? ' <span class="muted">(' + fmtBytes(entry.requestSize) + ')</span>' : ''}</h4>
           ${renderBody(entry.requestBody, entry.requestTruncated, reqCt, entry.id, 'req')}
         </div>
         <div class="block">
-          <h3>Réponse <span class="tag"><span class="${statusClass(entry.status)}">${esc(entry.status ?? '—')}</span></span></h3>
+          <h3>${esc(t('requests.response'))} <span class="tag"><span class="${statusClass(entry.status)}">${esc(entry.status ?? '—')}</span></span></h3>
           <h4>Headers</h4>
           ${renderHeaders(entry.responseHeaders)}
           <h4>Body${entry.responseSize != null ? ' <span class="muted">(' + fmtBytes(entry.responseSize) + ')</span>' : ''}</h4>
@@ -497,7 +502,7 @@
     lastRequestsKey = key;
     disposeAllEditors();
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun appel capté. Envoyez une requête vers <code>/v3/…</code>.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="7" class="empty">${t('requests.emptyHtml')}</td></tr>`;
       return;
     }
     tbody.innerHTML = rows.map(r => {
@@ -510,11 +515,11 @@
       const detailHtml = isOpen
         ? (cached
             ? renderDetail(cached)
-            : `<div class="detail-inner"><div class="block muted">Chargement du détail…</div></div>`)
+            : `<div class="detail-inner"><div class="block muted">${esc(t('requests.loadingDetail'))}</div></div>`)
         : '';
       const docUrl = docUrlFor(r.method, r.path);
       const docLink = docUrl
-        ? `<a class="doc-link" href="${docUrl}" target="_blank" rel="noopener" title="Documentation Brevo" onclick="event.stopPropagation()">↗</a>`
+        ? `<a class="doc-link" href="${docUrl}" target="_blank" rel="noopener" title="${esc(t('common.brevoDocs'))}" onclick="event.stopPropagation()">↗</a>`
         : '';
       return `
         <tr class="summary ${isOpen ? 'open' : ''}" data-id="${r.id}">
@@ -553,7 +558,7 @@
     summaryRow.classList.add('open');
     detailRow.style.display = '';
     if (!detailCache.has(id)) {
-      detailRow.querySelector('td').innerHTML = `<div class="detail-inner"><div class="block muted">Chargement…</div></div>`;
+      detailRow.querySelector('td').innerHTML = `<div class="detail-inner"><div class="block muted">${esc(t('common.loading'))}</div></div>`;
       try {
         const entry = await fetchJson('/mock-status/requests/' + id);
         detailCache.set(id, entry);
@@ -565,7 +570,7 @@
         mountEditorsFor(entry);
       } catch (e) {
         detailRow.querySelector('td').innerHTML =
-          `<div class="detail-inner"><div class="block" style="color:var(--err)">Erreur: ${esc(e.message)}</div></div>`;
+          `<div class="detail-inner"><div class="block" style="color:var(--err)">${esc(t('common.errorPrefix', { msg: e.message }))}</div></div>`;
       }
     } else {
       detailRow.querySelector('td').innerHTML = renderDetail(detailCache.get(id));
@@ -595,16 +600,16 @@
       if (activeTab === 'accounts') {
         const d = await fetchJson('/mock-status');
         renderAccounts(d);
-        setHealth(true, `${d.accountsCount} compte(s) · ${fmtTime(new Date().toISOString())}`);
+        setHealth(true, t('accounts.health', { n: d.accountsCount, time: fmtTime(new Date().toISOString()) }));
       } else {
         const q = filterEl.value.trim();
         const url = '/mock-status/requests?limit=200' + (q ? '&apiKey=' + encodeURIComponent(q) : '');
         const d = await fetchJson(url);
         renderRequests(d);
-        setHealth(true, `${d.total} en buffer · ${fmtTime(new Date().toISOString())}`);
+        setHealth(true, t('requests.health', { n: d.total, time: fmtTime(new Date().toISOString()) }));
       }
     } catch (e) {
-      setHealth(false, 'erreur: ' + e.message);
+      setHealth(false, t('health.error', { msg: e.message }));
     }
   };
 
@@ -646,11 +651,11 @@
       : (entry.responseHeaders || {})['content-type'];
     const payload = isJson(ct) ? prettifyJson(raw) : raw;
     copyToClipboard(payload).then(() => {
-      btn.classList.add('ok'); btn.textContent = 'Copié ✓';
-      setTimeout(() => { btn.classList.remove('ok'); btn.textContent = 'Copier'; }, 1500);
+      btn.classList.add('ok'); btn.textContent = t('requests.copied');
+      setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t('requests.copy'); }, 1500);
     }).catch(() => {
-      btn.classList.add('err'); btn.textContent = 'Erreur';
-      setTimeout(() => { btn.classList.remove('err'); btn.textContent = 'Copier'; }, 1500);
+      btn.classList.add('err'); btn.textContent = t('common.error');
+      setTimeout(() => { btn.classList.remove('err'); btn.textContent = t('requests.copy'); }, 1500);
     });
   });
 
@@ -695,7 +700,7 @@
     }
     const submitBtn = campaignForm.querySelector('button[type=submit]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Création…';
+    submitBtn.textContent = t('modal.creating');
     try {
       const resp = await fetch('/mock-status/accounts/' + encodeURIComponent(currentCampaignApiKey) + '/campaigns', {
         method: 'POST',
@@ -708,11 +713,11 @@
       lastRequestsKey = null;
       await refresh();
     } catch (err) {
-      campaignError.textContent = 'Erreur : ' + err.message;
+      campaignError.textContent = t('common.errorPrefix', { msg: err.message });
       campaignError.style.display = 'block';
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Créer';
+      submitBtn.textContent = t('modal.create');
     }
   });
 
@@ -733,7 +738,7 @@
     const deliveredValue = c.deliveredCount != null ? c.deliveredCount : 0;
     const apiKeyDisplay = c.account.apiKey
       ? `<code>${esc(c.account.apiKey)}</code>`
-      : `<code>${esc(c.account.apiKeyPreview)}</code> <span class="muted">masquée</span>`;
+      : `<code>${esc(c.account.apiKeyPreview)}</code> <span class="muted">${esc(t('common.masked'))}</span>`;
 
     return `
       <div class="deep-card">
@@ -742,35 +747,35 @@
           <span class="id">#${esc(c.id)}</span>
           <span class="badge ${statusCls}">${esc(c.status || 'draft')}</span>
         </h2>
-        <div class="subtitle">${esc(c.subject || '(pas de sujet)')}</div>
+        <div class="subtitle">${esc(c.subject || t('deep.noSubject'))}</div>
         <div class="kv">
-          <div class="k">Compte</div>
+          <div class="k">${esc(t('common.account'))}</div>
           <div class="v">${apiKeyDisplay} · ${esc(c.account.firstName || '')} ${esc(c.account.lastName || '')} · ${esc(c.account.email)}</div>
-          <div class="k">Expéditeur</div>
+          <div class="k">${esc(t('deep.sender'))}</div>
           <div class="v">${esc(c.senderName || '—')} &lt;${esc(c.senderEmail || '—')}&gt;</div>
-          <div class="k">Reply-to</div>
+          <div class="k">${esc(t('deep.replyTo'))}</div>
           <div class="v">${esc(c.replyTo || '—')}</div>
-          <div class="k">Template</div>
-          <div class="v">${c.templateId ? '#' + esc(c.templateId) : '<span class="muted">aucun</span>'}</div>
-          <div class="k">UTM</div>
+          <div class="k">${esc(t('deep.template'))}</div>
+          <div class="v">${c.templateId ? '#' + esc(c.templateId) : `<span class="muted">${esc(t('common.none'))}</span>`}</div>
+          <div class="k">${esc(t('deep.utm'))}</div>
           <div class="v">${esc(c.utmCampaign || '—')}</div>
-          <div class="k">Listes cibles</div>
+          <div class="k">${esc(t('deep.targetLists'))}</div>
           <div class="v">${recipientLinks}</div>
-          <div class="k">Créée</div>
+          <div class="k">${esc(t('deep.created'))}</div>
           <div class="v">${esc(c.createdAt || '—')}</div>
-          <div class="k">Envoyée</div>
-          <div class="v">${c.sentDate ? esc(c.sentDate) : '<span class="muted">jamais</span>'}</div>
+          <div class="k">${esc(t('deep.sent'))}</div>
+          <div class="v">${c.sentDate ? esc(c.sentDate) : `<span class="muted">${esc(t('common.never'))}</span>`}</div>
         </div>
-        <div class="section-title">Statistiques</div>
+        <div class="section-title">${esc(t('deep.stats'))}</div>
         <div class="stats-grid">
-          <div class="stat"><div class="stat-label">Delivered</div><div class="stat-value">${deliveredValue}</div></div>
-          <div class="stat"><div class="stat-label">Status</div><div class="stat-value">${esc(c.status || 'draft')}</div></div>
+          <div class="stat"><div class="stat-label">${esc(t('drill.col.delivered'))}</div><div class="stat-value">${deliveredValue}</div></div>
+          <div class="stat"><div class="stat-label">${esc(t('requests.col.status'))}</div><div class="stat-value">${esc(c.status || 'draft')}</div></div>
         </div>
-        <div class="section-title">Liens utiles</div>
+        <div class="section-title">${esc(t('common.usefulLinks'))}</div>
         <div>
-          <a class="btn-action" href="/" title="Accueil">UI principale</a>
+          <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
           <a class="btn-action" href="/mock-status" target="_blank" rel="noopener">/mock-status</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getemailcampaign" target="_blank" rel="noopener">Documentation Brevo ↗</a>
+          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getemailcampaign" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };
@@ -778,10 +783,10 @@
   const renderListDeep = (l) => {
     const apiKeyDisplay = l.account.apiKey
       ? `<code>${esc(l.account.apiKey)}</code>`
-      : `<code>${esc(l.account.apiKeyPreview)}</code> <span class="muted">masquée</span>`;
+      : `<code>${esc(l.account.apiKeyPreview)}</code> <span class="muted">${esc(t('common.masked'))}</span>`;
     const folderInfo = l.folderId
       ? `#${esc(l.folderId)} — ${esc(l.folderName || '')}`
-      : '<span class="muted">aucun</span>';
+      : `<span class="muted">${esc(t('common.none'))}</span>`;
     const contactRows = (l.contacts || []).map(c => `
       <tr>
         <td class="mono muted">#${esc(c.id)}</td>
@@ -797,35 +802,35 @@
           <span>${esc(l.name)}</span>
           <span class="id">#${esc(l.id)}</span>
         </h2>
-        <div class="subtitle">${esc(l.contactsCount)} contact(s)</div>
+        <div class="subtitle">${esc(t('deep.contactsCount', { n: l.contactsCount }))}</div>
         <div class="kv">
-          <div class="k">Compte</div>
+          <div class="k">${esc(t('common.account'))}</div>
           <div class="v">${apiKeyDisplay} · ${esc(l.account.firstName || '')} ${esc(l.account.lastName || '')} · ${esc(l.account.email)}</div>
-          <div class="k">Dossier</div>
+          <div class="k">${esc(t('deep.folder'))}</div>
           <div class="v">${folderInfo}</div>
         </div>
-        <div class="section-title">Contacts (${esc(l.contactsCount)})</div>
+        <div class="section-title">${esc(t('deep.contactsTitle', { n: l.contactsCount }))}</div>
         ${contactRows ? `
           <table>
             <thead>
-              <tr><th style="width:60px">ID</th><th>Email</th><th>Nom</th><th style="width:120px"></th></tr>
+              <tr><th style="width:60px">ID</th><th>Email</th><th>${esc(t('deep.col.name'))}</th><th style="width:120px"></th></tr>
             </thead>
             <tbody>${contactRows}</tbody>
           </table>
-        ` : '<div class="empty">Liste vide.</div>'}
-        <div class="section-title">Liens utiles</div>
+        ` : `<div class="empty">${esc(t('deep.emptyList'))}</div>`}
+        <div class="section-title">${esc(t('common.usefulLinks'))}</div>
         <div>
-          <a class="btn-action" href="/" title="Accueil">UI principale</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getlist" target="_blank" rel="noopener">Documentation Brevo ↗</a>
+          <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
+          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getlist" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };
 
   const renderNotFound = (what, id) => `
     <div class="deep-not-found">
-      <strong>${esc(what)} #${esc(id)} introuvable</strong>
-      <div style="margin-top:8px">Ce compte n'a peut-être pas été provisionné dans ce mock, ou l'ID est périmé.</div>
-      <div style="margin-top:12px"><a class="btn-action btn-primary" href="/">Retour à l'accueil</a></div>
+      <strong>${esc(t('deep.notFound', { what, id }))}</strong>
+      <div style="margin-top:8px">${esc(t('deep.notFoundHint'))}</div>
+      <div style="margin-top:12px"><a class="btn-action btn-primary" href="/">${esc(t('common.backHome'))}</a></div>
     </div>`;
 
   const handleDeepLink = async () => {
@@ -833,45 +838,45 @@
     let match = path.match(/^\/marketing-campaign\/edit\/(\d+)\/?$/);
     if (match) {
       const id = match[1];
-      deepLinkTitle.textContent = `Campagne #${id}`;
-      deepLinkBody.innerHTML = '<div class="deep-card muted">Chargement…</div>';
+      deepLinkTitle.textContent = t('deep.campaignTitle', { id });
+      deepLinkBody.innerHTML = `<div class="deep-card muted">${esc(t('common.loading'))}</div>`;
       deepLinkView.style.display = 'block';
       // hide default tabs to focus on the detail view
       document.querySelectorAll('section#accounts, section#requests, nav.tabs').forEach(el => el.style.display = 'none');
       try {
         const resp = await fetch('/mock-status/campaigns/' + id, { headers: { accept: 'application/json' } });
         if (resp.status === 404) {
-          deepLinkBody.innerHTML = renderNotFound('Campagne', id);
+          deepLinkBody.innerHTML = renderNotFound(t('deep.campaign'), id);
           return;
         }
         if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
         const data = await resp.json();
-        deepLinkTitle.innerHTML = `Campagne — <code>${esc(data.name || ('#' + data.id))}</code>`;
+        deepLinkTitle.innerHTML = `${esc(t('deep.campaignPrefix'))} — <code>${esc(data.name || ('#' + data.id))}</code>`;
         deepLinkBody.innerHTML = renderCampaignDeep(data);
       } catch (e) {
-        deepLinkBody.innerHTML = `<div class="deep-not-found"><strong>Erreur</strong><div>${esc(e.message)}</div></div>`;
+        deepLinkBody.innerHTML = `<div class="deep-not-found"><strong>${esc(t('common.error'))}</strong><div>${esc(e.message)}</div></div>`;
       }
       return true;
     }
     match = path.match(/^\/contact\/list\/id\/(\d+)\/?$/);
     if (match) {
       const id = match[1];
-      deepLinkTitle.textContent = `Liste de contacts #${id}`;
-      deepLinkBody.innerHTML = '<div class="deep-card muted">Chargement…</div>';
+      deepLinkTitle.textContent = t('deep.listTitle', { id });
+      deepLinkBody.innerHTML = `<div class="deep-card muted">${esc(t('common.loading'))}</div>`;
       deepLinkView.style.display = 'block';
       document.querySelectorAll('section#accounts, section#requests, nav.tabs').forEach(el => el.style.display = 'none');
       try {
         const resp = await fetch('/mock-status/lists/' + id, { headers: { accept: 'application/json' } });
         if (resp.status === 404) {
-          deepLinkBody.innerHTML = renderNotFound('Liste', id);
+          deepLinkBody.innerHTML = renderNotFound(t('deep.list'), id);
           return;
         }
         if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
         const data = await resp.json();
-        deepLinkTitle.innerHTML = `Liste — <code>${esc(data.name || ('#' + data.id))}</code>`;
+        deepLinkTitle.innerHTML = `${esc(t('deep.listPrefix'))} — <code>${esc(data.name || ('#' + data.id))}</code>`;
         deepLinkBody.innerHTML = renderListDeep(data);
       } catch (e) {
-        deepLinkBody.innerHTML = `<div class="deep-not-found"><strong>Erreur</strong><div>${esc(e.message)}</div></div>`;
+        deepLinkBody.innerHTML = `<div class="deep-not-found"><strong>${esc(t('common.error'))}</strong><div>${esc(e.message)}</div></div>`;
       }
       return true;
     }
@@ -883,12 +888,12 @@
   // ============================================================
   $('#resetAllBtn')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    if (!confirm("Supprimer définitivement TOUS les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs et emails ?\n\nCette action est irréversible.")) {
+    if (!confirm(t('reset.confirm'))) {
       return;
     }
     btn.disabled = true;
     const originalLabel = btn.textContent;
-    btn.textContent = 'Réinitialisation…';
+    btn.textContent = t('reset.running');
     try {
       const resp = await fetch('/mock/reset', { method: 'POST' });
       if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
@@ -900,11 +905,11 @@
       const d = data.deleted || {};
       const summary = ['accounts', 'contacts', 'lists', 'campaigns', 'templates', 'sentEmails']
         .map(k => `${k}:${d[k] ?? 0}`).join(' · ');
-      setHealth(true, 'réinitialisé · ' + summary);
+      setHealth(true, t('health.reset', { summary }));
       await refresh();
     } catch (err) {
-      setHealth(false, 'erreur reset: ' + err.message);
-      alert('Erreur : ' + err.message);
+      setHealth(false, t('health.resetError', { msg: err.message }));
+      alert(t('common.errorPrefix', { msg: err.message }));
     } finally {
       btn.disabled = false;
       btn.textContent = originalLabel;
@@ -924,6 +929,32 @@
     }
   };
   $('#autoRefresh').addEventListener('change', schedule);
+
+  // ============================================================
+  // LANGUAGE (fr / en) — i18n.js picked the initial language and
+  // translated the static markup; re-render the dynamic parts on toggle.
+  // ============================================================
+  const isDeepLinkPath = () =>
+    /^\/(marketing-campaign\/edit|contact\/list\/id)\/\d+\/?$/.test(window.location.pathname);
+
+  const applyLangLabel = () => {
+    const label = $('#langLabel');
+    if (label) label.textContent = I18N.lang().toUpperCase();
+  };
+
+  $('#langToggle')?.addEventListener('click', () => {
+    I18N.setLang(I18N.lang() === 'fr' ? 'en' : 'fr');
+    applyLangLabel();
+    applyTheme(getTheme());
+    if (isDeepLinkPath()) {
+      handleDeepLink();
+    } else {
+      lastRequestsKey = null;
+      refresh();
+    }
+  });
+
+  applyLangLabel();
 
   // If we're on a deep-link URL, render the detail view and skip the default UI polling.
   handleDeepLink().then(isDeep => {

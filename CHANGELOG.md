@@ -16,7 +16,8 @@ add readme github in docker overview
 
 ## [0.2.0] — 2026-04-24
 
-add scripts for: 
+add scripts for:
+
 - change version
 - deploy
 

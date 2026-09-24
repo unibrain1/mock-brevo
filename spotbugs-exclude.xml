@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusions. EI_EXPOSE_REP / EI_EXPOSE_REP2 flag every Spring-injected
+  collaborator and every Java record holding a List/Map, which is the normal
+  design here (DTO records serialized by Jackson), so they are pure noise.
+-->
+<FindBugsFilter>
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
+  <!-- Best-effort SMTP forward: any failure is logged and stored on the email row. -->
+  <Match>
+    <Class name="org.enoria.mockbrevo.smtp.SmtpForwarder"/>
+    <Bug pattern="REC_CATCH_EXCEPTION"/>
+  </Match>
+  <!-- Upstream code; harmless micro-inefficiency, kept to avoid merge conflicts. -->
+  <Match>
+    <Class name="org.enoria.mockbrevo.brevo.EmailCampaignsController"/>
+    <Method name="toItem"/>
+    <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED"/>
+  </Match>
+</FindBugsFilter>

@@ -1,0 +1,6 @@
+ignored:
+  # Pinning apt package versions breaks on every Debian security update.
+  - DL3008
+  # HEALTHCHECK CMD uses shell form on purpose to expand ${SERVER_PORT}.
+  - DL3025
+failure-threshold: warning

@@ -13,25 +13,25 @@ import org.springframework.stereotype.Service;
 public class CampaignFaker {
 
     private static final String[] NAME_POOL = {
-            "Newsletter de bienvenue",
-            "Lettre mensuelle",
-            "Campagne de remerciement",
-            "Appel aux dons printemps",
-            "Récap trimestriel",
-            "Relance donateurs",
-            "Annonce événement",
-            "Offre spéciale adhérents"
+            "Welcome newsletter",
+            "Monthly newsletter",
+            "Thank-you campaign",
+            "Spring fundraising appeal",
+            "Quarterly recap",
+            "Donor reminder",
+            "Event announcement",
+            "Members-only offer"
     };
 
     private static final String[] SUBJECT_POOL = {
-            "Bienvenue chez nous",
-            "Vos dernières actualités",
-            "Un grand merci !",
-            "Votre impact en chiffres",
-            "On compte sur vous",
-            "Découvrez nos nouveautés",
-            "C'est bientôt la fin…",
-            "Votre rapport annuel"
+            "Welcome aboard",
+            "Your latest news",
+            "A big thank you!",
+            "Your impact in numbers",
+            "We're counting on you",
+            "Discover what's new",
+            "Almost over…",
+            "Your annual report"
     };
 
     private static final String[] UTM_POOL = {
@@ -74,8 +74,8 @@ public class CampaignFaker {
 
     public List<EmailCampaign> seedDefaults(Account account) {
         return List.of(
-                create(account, new Spec("Newsletter de bienvenue", "Bienvenue chez nous", null, null, "welcome", null, "sent")),
-                create(account, new Spec("Lettre mensuelle", "Vos dernières actualités", null, null, "monthly", null, "sent"))
+                create(account, new Spec("Welcome newsletter", "Welcome aboard", null, null, "welcome", null, "sent")),
+                create(account, new Spec("Monthly newsletter", "Your latest news", null, null, "monthly", null, "sent"))
         );
     }
 

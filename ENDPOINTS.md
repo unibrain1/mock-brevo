@@ -1,65 +1,66 @@
-# Brevo API — Priorités d'implémentation pour mock-brevo
+# Brevo API — Implementation priorities for mock-brevo
 
-Liste priorisée des endpoints à mocker pour qu'Enoria (`/home/adu/git/enoria`) puisse fonctionner contre ce serveur local.
+Prioritized list of the endpoints to mock so that Enoria (`/home/adu/git/enoria`) can run against this local server.
 
-## Contexte
+## Context
 
-- **Client côté Enoria :** SDK officiel `getbrevo/brevo-php ^4.0` (Guzzle), clé API stockée chiffrée dans `Entite.brevoApiKey` / `EntiteLiee.brevoApiKey`.
-- **Base URL réelle :** `https://api.brevo.com/v3`
-- **Auth :** header `api-key: <KEY>`. **Un compte = une clé API.** À chaque requête entrante :
-  - Si la clé API existe en base → on rattache la requête au compte correspondant.
-  - Sinon → on **crée automatiquement** un nouveau compte (avec valeurs par défaut : `firstName`, `lastName`, `email`, `plan[]` générés à partir de la clé) et on le rattache à la requête.
-  - Seule une clé absente/vide doit renvoyer **401**. Toute autre clé est valide et provisionne son compte à la volée.
-  - Toutes les données (contacts, listes, campagnes, emails envoyés, templates, dossiers, senders) sont **scopées par compte** — aucune fuite entre clés API.
-- **Webhooks :** Enoria reçoit les callbacks sur `POST /callback/brevomail/{key}` (clé = `TOKEN_CALLBACK_MAIL`). Le mock doit pouvoir **émettre** ces webhooks vers une URL configurable pour simuler `delivered`, `opened`, `click`, `hard_bounce`, `soft_bounce`, `complaint`, `invalid_email`, `blocked`, `error`, `unsubscribed`.
+- **Enoria-side client:** official SDK `getbrevo/brevo-php ^4.0` (Guzzle), API key stored encrypted in `Entite.brevoApiKey` / `EntiteLiee.brevoApiKey`.
+- **Real base URL:** `https://api.brevo.com/v3`
+- **Auth:** header `api-key: <KEY>`. **One account = one API key.** On every incoming request:
+  - If the API key exists in the database → the request is attached to the matching account.
+  - Otherwise → a new account is **created automatically** (with default values: `firstName`, `lastName`, `email`, `plan[]` generated from the key) and attached to the request.
+  - Only a missing/blank key must return **401**. Any other key is valid and provisions its account on the fly.
+  - All data (contacts, lists, campaigns, sent emails, templates, folders, senders) is **scoped per account** — nothing leaks between API keys.
+- **Webhooks:** Enoria receives callbacks on `POST /callback/brevomail/{key}` (key = `TOKEN_CALLBACK_MAIL`). The mock must be able to **emit** these webhooks to a configurable URL to simulate `delivered`, `opened`, `click`, `hard_bounce`, `soft_bounce`, `complaint`, `invalid_email`, `blocked`, `error`, `unsubscribed`.
 
-Tous les chemins ci-dessous sont préfixés par `/v3`. Les réponses doivent respecter **exactement** les noms de champs JSON de Brevo (le SDK désérialise strictement).
+All paths below are prefixed with `/v3`. Responses must match Brevo's JSON field names **exactly** (the SDK deserializes strictly).
 
 ---
 
-## P0 — Bloquants (sans eux, Enoria plante au démarrage)
+## P0 — Blockers (without them, Enoria crashes at startup)
 
-| # | Méthode | Endpoint | SDK | Appelé depuis | Notes |
+| # | Method | Endpoint | SDK | Called from | Notes |
 |---|---------|----------|-----|---------------|-------|
-| 1 | `GET` | `/account` | `AccountApi::getAccount` | `ApiBrevoService.php:75` (validation clé), `:322` (dashboard) | Doit renvoyer `firstName`, `lastName`, `email`, `plan[]` avec `type` et `credits` du compte rattaché à la clé. Si la clé est absente/vide → **401**. Si c'est la première fois qu'on voit cette clé, le compte est créé à la volée (voir § Contexte) puis renvoyé. |
-| 2 | `POST` | `/smtp/email` | `TransactionalEmailsApi::sendTransacEmail` | `ApiBrevoService.php:224` (envois groupés ToolsController), `:664` (reçus de dons) | **Endpoint le plus appelé.** Accepter `to[]`, `sender`, `subject`, `htmlContent`, `cc`, `bcc`, `attachment`, `replyTo`, `templateId`, `params`. Retourner `{ "messageId": "<uuid>" }`. Persister le payload rendu pour inspection. |
-| 3 | `GET` | `/senders` | `AccountApi::getSenders` | `ApiBrevoService.php:348` + nombreux dropdowns | Renvoie `senders[]` avec `name`, `email`, `active` (bool). Enoria filtre sur `active=true`. |
+| 1 | `GET` | `/account` | `AccountApi::getAccount` | `ApiBrevoService.php:75` (key validation), `:322` (dashboard) | Must return `firstName`, `lastName`, `email`, `plan[]` with `type` and `credits` for the account attached to the key. If the key is missing/blank → **401**. If this key has never been seen before, the account is created on the fly (see § Context) and then returned. |
+| 2 | `POST` | `/smtp/email` | `TransactionalEmailsApi::sendTransacEmail` | `ApiBrevoService.php:224` (bulk sends from ToolsController), `:664` (donation receipts) | **Most-called endpoint.** Accept `to[]`, `sender`, `subject`, `htmlContent`, `cc`, `bcc`, `attachment`, `replyTo`, `templateId`, `params`. Return `{ "messageId": "<uuid>" }`. Persist the rendered payload for inspection. |
+| 3 | `GET` | `/senders` | `AccountApi::getSenders` | `ApiBrevoService.php:348` + many dropdowns | Returns `senders[]` with `name`, `email`, `active` (bool). Enoria filters on `active=true`. |
 
-## P1 — Gestion des contacts et listes (flux newsletter)
+## P1 — Contact and list management (newsletter flow)
 
-| # | Méthode | Endpoint | SDK | Appelé depuis | Notes |
+| # | Method | Endpoint | SDK | Called from | Notes |
 |---|---------|----------|-----|---------------|-------|
-| 4 | `GET` | `/contacts/lists` | `ContactsApi::getLists` | `ApiBrevoService.php:296` | Retourner `lists[]` avec `id`, `name`, `uniqueSubscribers`. Supporte `limit`/`offset`. |
-| 5 | `POST` | `/contacts/import` | `ContactsApi::importContacts` | `ApiBrevoService.php:371`, `CampagneCommunicationService.php:435` | Payload clé : `fileBody` (CSV `EMAIL,PRENOM,NOM`), `listIds[]`, `updateExistingContacts=true`. Retourner `{ "processId": <int> }`. En mock : parser le CSV, matérialiser les contacts synchrones, puis répondre OK. |
-| 6 | `GET` | `/contacts/lists/{listId}/contacts` | `ContactsApi::getContactsFromList` | `ApiBrevoService.php:421` (boucle sync par batch de 300) | Pagination `limit`/`offset`. Response : `contacts[]` avec `email`, `emailBlacklisted`. |
-| 7 | `DELETE` | `/contacts/lists/{listId}/contacts` | `ContactsApi::removeContactFromList` | `ApiBrevoService.php:387` (désabonnement utilisateur) | Body : `{ "emails": [...] }`. |
-| 8 | `PUT` | `/contacts/{email}` | `ContactsApi::updateContact` | `ApiBrevoService.php:405` (toggle blacklist) | Payload : `emailBlacklisted` (bool), `listIds[]`. |
+| 4 | `GET` | `/contacts/lists` | `ContactsApi::getLists` | `ApiBrevoService.php:296` | Return `lists[]` with `id`, `name`, `uniqueSubscribers`. Supports `limit`/`offset`. |
+| 5 | `POST` | `/contacts/import` | `ContactsApi::importContacts` | `ApiBrevoService.php:371`, `CampagneCommunicationService.php:435` | Key payload fields: `fileBody` (CSV `EMAIL,PRENOM,NOM`), `listIds[]`, `updateExistingContacts=true`. Return `{ "processId": <int> }`. In the mock: parse the CSV, create the contacts synchronously, then respond OK. |
+| 6 | `GET` | `/contacts/lists/{listId}/contacts` | `ContactsApi::getContactsFromList` | `ApiBrevoService.php:421` (sync loop in batches of 300) | `limit`/`offset` pagination. Response: `contacts[]` with `email`, `emailBlacklisted`. |
+| 7 | `DELETE` | `/contacts/lists/{listId}/contacts` | `ContactsApi::removeContactFromList` | `ApiBrevoService.php:387` (user unsubscribe) | Body: `{ "emails": [...] }`. |
+| 8 | `PUT` | `/contacts/{email}` | `ContactsApi::updateContact` | `ApiBrevoService.php:405` (blacklist toggle) | Payload: `emailBlacklisted` (bool), `listIds[]`. |
 
-## P2 — Campagnes email (dashboard + envois manuels)
+## P2 — Email campaigns (dashboard + manual sends)
 
-| # | Méthode | Endpoint | SDK | Appelé depuis | Notes |
+| # | Method | Endpoint | SDK | Called from | Notes |
 |---|---------|----------|-----|---------------|-------|
-| 9 | `GET` | `/emailCampaigns` | `EmailCampaignsApi::getEmailCampaigns` | `ApiBrevoService.php:257` | Query : `type=classic`, `limit=100`, `offset=0`. Enoria lit `campaigns[].id/name/subject/status/sentDate/sender.email` et `statistics.campaignStats[].delivered`. |
-| 10 | `POST` | `/emailCampaigns` | `EmailCampaignsApi::createEmailCampaign` | `ApiBrevoService.php:590`, `CampagneCommunicationService.php` | Payload : `name`, `sender{name,email}`, `templateId`, `subject`, `replyTo`, `recipients.listIds[]`, `inlineImageActivation`, `mirrorActive`, `utmCampaign`, `params` (variables de template, ex. `URL_DON`). |
-| 11 | `POST` | `/emailCampaigns/{id}/sendNow` | `EmailCampaignsApi::sendEmailCampaignNow` | `ApiBrevoService.php:621` | Pas de body. Retourner 204. Doit déclencher (asynchrone) les webhooks `delivered` vers Enoria si configuré. |
+| 9 | `GET` | `/emailCampaigns` | `EmailCampaignsApi::getEmailCampaigns` | `ApiBrevoService.php:257` | Query: `type=classic`, `limit=100`, `offset=0`. Enoria reads `campaigns[].id/name/subject/status/sentDate/sender.email` and `statistics.campaignStats[].delivered`. |
+| 10 | `POST` | `/emailCampaigns` | `EmailCampaignsApi::createEmailCampaign` | `ApiBrevoService.php:590`, `CampagneCommunicationService.php` | Payload: `name`, `sender{name,email}`, `templateId`, `subject`, `replyTo`, `recipients.listIds[]`, `inlineImageActivation`, `mirrorActive`, `utmCampaign`, `params` (template variables, e.g. `URL_DON`). |
+| 11 | `POST` | `/emailCampaigns/{id}/sendNow` | `EmailCampaignsApi::sendEmailCampaignNow` | `ApiBrevoService.php:621` | No body. Return 204. Must (asynchronously) trigger `delivered` webhooks to Enoria if configured. |
 
-## P3 — Templates & dossiers (UI secondaire)
+## P3 — Templates & folders (secondary UI)
 
-| # | Méthode | Endpoint | SDK | Appelé depuis | Notes |
+| # | Method | Endpoint | SDK | Called from | Notes |
 |---|---------|----------|-----|---------------|-------|
-| 12 | `GET` | `/smtp/templates` | `TransactionalEmailsApi::getSmtpTemplates` | `ApiBrevoService.php:483` | Query : `templateStatus=true`, `limit=50`. Response : `templates[]` avec au moins `id`, `name`. |
-| 13 | `GET` | `/contacts/folders` | `ContactsApi::getFolders` | `ApiBrevoService.php:512` | Query : `limit=20`. Response : `folders[]` avec `id`, `name`. |
-| 14 | `POST` | `/contacts/folders` | `ContactsApi::createFolder` | `ApiBrevoService.php:527` (crée « Campagnes de communication Enoria » si absent) | Payload : `{ "name": "..." }`. Response : `{ "id": <int> }`. |
+| 12 | `GET` | `/smtp/templates` | `TransactionalEmailsApi::getSmtpTemplates` | `ApiBrevoService.php:483` | Query: `templateStatus=true`, `limit=50`. Response: `templates[]` with at least `id`, `name`. |
+| 13 | `GET` | `/contacts/folders` | `ContactsApi::getFolders` | `ApiBrevoService.php:512` | Query: `limit=20`. Response: `folders[]` with `id`, `name`. |
+| 14 | `POST` | `/contacts/folders` | `ContactsApi::createFolder` | `ApiBrevoService.php:527` (creates "Campagnes de communication Enoria" if missing) | Payload: `{ "name": "..." }`. Response: `{ "id": <int> }`. |
 
-## P4 — Routes d'administration du mock (hors API Brevo)
+## P4 — Mock admin routes (outside the Brevo API)
 
-Ces routes ne sont **pas** des endpoints Brevo — elles servent à inspecter/piloter le mock depuis les tests ou un navigateur. Préfixe conseillé : `/mock-*` ou `/_mock/*` pour éviter toute collision avec un éventuel futur endpoint Brevo.
+These routes are **not** Brevo endpoints — they are used to inspect/drive the mock from tests or a browser. Suggested prefix: `/mock-*` or `/_mock/*` to avoid any collision with a possible future Brevo endpoint.
 
-### `GET /mock-status` — Liste des comptes provisionnés
+### `GET /mock-status` — List of provisioned accounts
 
-Retourne la liste des clés API rencontrées et, pour chacune, un résumé du compte associé. Aucun auth requis (endpoint de debug/dev).
+Returns the list of API keys seen so far and, for each one, a summary of the associated account. No auth required (debug/dev endpoint).
 
-Format de réponse proposé :
+Proposed response format:
+
 ```json
 {
   "accounts": [
@@ -83,38 +84,38 @@ Format de réponse proposé :
 }
 ```
 
-Pour éviter de fuiter les clés en clair dans des logs ou captures d'écran, exposer `apiKeyPreview` (premiers + derniers caractères) à côté de la clé complète, et envisager un flag `MOCK_STATUS_REVEAL_KEYS=false` qui masque `apiKey` en production de test partagée.
+To avoid leaking plaintext keys into logs or screenshots, expose `apiKeyPreview` (first + last characters) next to the full key, and consider a `MOCK_STATUS_REVEAL_KEYS=false` flag that hides `apiKey` in shared test environments.
 
-### `POST /mock-webhooks/fire` — Émettre un webhook vers Enoria
+### `POST /mock-webhooks/fire` — Emit a webhook to Enoria
 
-Pour tester le scoring d'incidents côté Enoria :
+For testing incident scoring on the Enoria side:
 
-- Body : `{ "url": "http://enoria.local/callback/brevomail/<TOKEN>", "event": "...", "email": "...", "reason": "..." }`
-- Événements gérés par `CallbackController.php:25` : `delivered`, `unique_opened`, `opened`, `click` (positifs) · `soft_bounce`, `hard_bounce`, `complaint`, `invalid_email`, `blocked`, `error`, `unsubscribed` (négatifs)
-- Sécurité Enoria : la clé `TOKEN_CALLBACK_MAIL` est passée en path param/query string ; le mock la transmet telle qu'on la lui donne.
+- Body: `{ "url": "http://enoria.local/callback/brevomail/<TOKEN>", "event": "...", "email": "...", "reason": "..." }`
+- Events handled by `CallbackController.php:25`: `delivered`, `unique_opened`, `opened`, `click` (positive) · `soft_bounce`, `hard_bounce`, `complaint`, `invalid_email`, `blocked`, `error`, `unsubscribed` (negative)
+- Enoria security: the `TOKEN_CALLBACK_MAIL` key is passed as a path param/query string; the mock forwards it exactly as given.
 
-Optionnel : déclencher automatiquement `delivered` quelques secondes après chaque `POST /smtp/email` si une URL webhook par défaut est configurée par compte.
+Optional: automatically fire `delivered` a few seconds after each `POST /smtp/email` if a default webhook URL is configured for the account.
 
-### `GET /mock-status/accounts/{apiKey}/emails` — Inspection des emails envoyés
+### `GET /mock-status/accounts/{apiKey}/emails` — Inspect sent emails
 
-Liste les emails persistés pour un compte donné (utile pour les assertions de tests). Query : `limit`, `offset`. Réponse : payload complet capturé au moment de l'envoi + `messageId` rendu.
+Lists the emails persisted for a given account (useful for test assertions). Query: `limit`, `offset`. Response: full payload captured at send time + the returned `messageId`.
 
 ---
 
-## Hors scope (pour l'instant)
+## Out of scope (for now)
 
-Enoria **n'utilise pas** : SMS, WhatsApp, Conversations, Companies, Deals, Inbound Parsing, scores d'attributs contacts, sous-comptes. Ne pas implémenter tant qu'un appel réel n'apparaît pas.
+Enoria **does not use**: SMS, WhatsApp, Conversations, Companies, Deals, Inbound Parsing, contact attribute scores, sub-accounts. Don't implement them until a real call shows up.
 
-SMTP transport (`brevo+smtp://` via Symfony Mailer) : Enoria a la capacité mais utilise actuellement un SMTP local — **pas prioritaire** pour le mock.
+SMTP transport (`brevo+smtp://` via Symfony Mailer): Enoria supports it but currently uses a local SMTP server — **not a priority** for the mock.
 
-## Ordre de démarrage recommandé
+## Recommended build order
 
-1. Squelette Spring Boot + H2 file + Dockerfile
-2. **Modèle `Account` + filtre d'auth** : résout la clé API de la requête, crée le compte si inconnu, expose le compte courant aux controllers (ex. via `HandlerInterceptor` + attribut de requête ou `@ModelAttribute`). Toute entité métier (contact, liste, email, campagne…) porte une FK `account_id`.
-3. P0 #1 `GET /account` + `GET /mock-status` → on peut déjà voir les comptes apparaître
-4. P0 #2 `POST /smtp/email` + persistance + `GET /mock-status/accounts/{apiKey}/emails` → Enoria peut envoyer, les tests peuvent asserter
+1. Spring Boot skeleton + H2 file + Dockerfile
+2. **`Account` model + auth filter**: resolves the request's API key, creates the account if unknown, exposes the current account to controllers (e.g. via `HandlerInterceptor` + request attribute or `@ModelAttribute`). Every domain entity (contact, list, email, campaign…) carries an `account_id` FK.
+3. P0 #1 `GET /account` + `GET /mock-status` → accounts already start showing up
+4. P0 #2 `POST /smtp/email` + persistence + `GET /mock-status/accounts/{apiKey}/emails` → Enoria can send, tests can assert
 5. P0 #3 `GET /senders`
-6. P1 (5 endpoints) → flux newsletter opérationnel
-7. P2 (3 endpoints) → campagnes
-8. P3 (3 endpoints) → finition UI
-9. P4 `POST /mock-webhooks/fire` → tests de bout en bout du scoring d'incidents
+6. P1 (5 endpoints) → newsletter flow working
+7. P2 (3 endpoints) → campaigns
+8. P3 (3 endpoints) → UI polish
+9. P4 `POST /mock-webhooks/fire` → end-to-end tests of incident scoring

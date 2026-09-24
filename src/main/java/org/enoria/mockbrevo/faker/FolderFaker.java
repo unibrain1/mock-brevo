@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class FolderFaker {
 
-    private static final String DEFAULT_FOLDER_NAME = "Général";
+    private static final String DEFAULT_FOLDER_NAME = "General";
 
     private final FolderRepository folders;
 

@@ -25,10 +25,21 @@ The Maven wrapper (`./mvnw`) is checked in — no system Maven install required.
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port=18080"
 ./mvnw clean package -DskipTests                # build fat jar → target/mock-brevo-0.1.0.jar
 java -jar target/mock-brevo-0.1.0.jar           # run the packaged jar
-./mvnw test                                     # run tests (once any exist)
+./mvnw test                                     # API tests (MockMvc, in-memory H2)
 ./mvnw test -Dtest=ClassName#method             # run a single test
+./mvnw -Plint verify                            # what CI runs: javac -Xlint -Werror + SpotBugs + tests
 docker compose up -d --build                    # containerized; H2 file volume-mounted at /app/data
 ```
+
+Web/doc linting and browser tests use Node (`npm ci` first; not needed to build or run the app):
+
+```bash
+npm run lint                                    # ESLint, HTMLHint, Stylelint, markdownlint
+MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a running server
+yamllint -s .                                   # YAML
+```
+
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-review.yml` (Claude PR review, needs the `CLAUDE_CODE_OAUTH_TOKEN` secret). SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
@@ -36,7 +47,7 @@ The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
 Single Spring Boot module. Code layout:
 
-```
+```text
 src/main/java/org/enoria/mockbrevo/
 ├── MockBrevoApplication.java        # @SpringBootApplication + @EnableAsync
 ├── config/                          # WebConfig (interceptor), AppConfig (beans), MockBrevoProperties

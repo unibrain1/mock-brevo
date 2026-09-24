@@ -1,10 +1,16 @@
 version: 2
+
+# Every ecosystem runs Mondays at 05:00 Pacific so PRs are waiting before 6am.
+# PRs are assigned to the fork owner so GitHub notifies them.
 updates:
   - package-ecosystem: maven
     directory: /
     schedule:
       interval: weekly
       day: monday
+      time: "05:00"
+      timezone: America/Los_Angeles
+    assignees: [unibrain1]
     open-pull-requests-limit: 5
     groups:
       spring:
@@ -17,11 +23,27 @@ updates:
           - "org.mockito.*"
           - "*:spring-boot-starter-test"
 
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: America/Los_Angeles
+    assignees: [unibrain1]
+    open-pull-requests-limit: 3
+    groups:
+      lint-and-test-tooling:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+      time: "05:00"
+      timezone: America/Los_Angeles
+    assignees: [unibrain1]
     open-pull-requests-limit: 3
 
   - package-ecosystem: docker
@@ -29,4 +51,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+      time: "05:00"
+      timezone: America/Los_Angeles
+    assignees: [unibrain1]
     open-pull-requests-limit: 2
