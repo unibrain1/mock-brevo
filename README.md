@@ -32,7 +32,7 @@ See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 ### Docker (pre-built image)
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/<OWNER>/mock-brevo:latest
+docker run --rm -p 8080:8080 ghcr.io/unibrain1/mock-brevo:latest
 ```
 
 Then point your Brevo client at `http://localhost:8080` instead of `api.brevo.com`. Any `api-key` value works — the first use provisions the account on the fly.
@@ -42,7 +42,7 @@ Then point your Brevo client at `http://localhost:8080` instead of `api.brevo.co
 ```yaml
 services:
   mock-brevo:
-    image: ghcr.io/<OWNER>/mock-brevo:latest
+    image: ghcr.io/unibrain1/mock-brevo:latest
     ports: ["8080:8080"]
     volumes: ["brevo-data:/app/data"]
     environment:
