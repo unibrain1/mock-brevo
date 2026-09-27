@@ -130,6 +130,10 @@ class ApiShapeSnapshotTest {
 
         captureWebhook();
 
+        // Reads the events the webhook step recorded (plus the sends).
+        capture("v3-smtp-statistics-events", "GET", "/v3/smtp/statistics/events?sort=desc", null, key);
+        capture("v3-smtp-statistics-events-400", "GET", "/v3/smtp/statistics/events?startDate=2026-01-01", null, key);
+
         compareAll();
     }
 
