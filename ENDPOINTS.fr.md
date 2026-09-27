@@ -4,6 +4,8 @@
 
 > Version française d'origine. La version anglaise ([ENDPOINTS.md](ENDPOINTS.md)) est une traduction ; en cas de divergence, elle fait foi.
 
+> Écrit par l'auteur upstream pour son application, Enoria. Les endpoints et les appels SDK valent pour tout client du SDK PHP Brevo.
+
 Liste priorisée des endpoints à mocker pour qu'Enoria (`/home/adu/git/enoria`) puisse fonctionner contre ce serveur local.
 
 ## Contexte

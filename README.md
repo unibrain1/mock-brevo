@@ -35,7 +35,7 @@ See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 docker run --rm -p 8080:8080 ghcr.io/unibrain1/mock-brevo:latest
 ```
 
-Then point your Brevo client at `http://localhost:8080` instead of `api.brevo.com`. Any `api-key` value works — the first use provisions the account on the fly.
+Then point your Brevo client at mock-brevo instead of `api.brevo.com`. An SDK client uses `http://localhost:8080/v3` as its host. A raw HTTP client replaces `https://api.brevo.com` with `http://localhost:8080`. Any `api-key` value works — the first use provisions the account on the fly.
 
 ### Docker Compose
 
