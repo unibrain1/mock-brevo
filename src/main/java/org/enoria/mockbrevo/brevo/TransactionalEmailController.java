@@ -111,6 +111,7 @@ public class TransactionalEmailController {
                 && !properties.getDefaultWebhookUrl().isBlank()
                 && request.to() != null) {
             for (SendSmtpEmailRequest.EmailAddress to : request.to()) {
+                if (to == null || to.email() == null || to.email().isBlank()) continue;
                 webhookService.fire(new WebhookService.Fire(
                         properties.getDefaultWebhookUrl(), null, account,
                         "delivered", to.email(), null, messageId, null, null));
