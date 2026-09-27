@@ -485,7 +485,7 @@ class BrevoApiTest {
         mvc.perform(get("/mock-status/accounts/" + key + "/blocked"))
                 .andExpect(jsonPath("$.count").value(2));
 
-        for (String[] q : new String[][] {{"limit", "101"}, {"offset", "-1"}, {"sort", "up"}, {"startDate", today()}}) {
+        for (String[] q : new String[][] {{"limit", "101"}, {"offset", "-1"}, {"sort", "up"}, {"startDate", today()}, {"offset", "x"}}) {
             mvc.perform(get(url).header("api-key", key).param(q[0], q[1]))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("invalid_parameter"));
