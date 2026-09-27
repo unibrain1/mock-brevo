@@ -24,8 +24,8 @@ The Maven wrapper (`./mvnw`) is checked in — no system Maven install required.
 ```bash
 ./mvnw spring-boot:run                          # run from sources (port 8080, hot path for demos)
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port=18080"
-./mvnw clean package -DskipTests                # build fat jar → target/mock-brevo-0.1.0.jar
-java -jar target/mock-brevo-0.1.0.jar           # run the packaged jar
+./mvnw clean package -DskipTests                # build fat jar → target/mock-brevo-*.jar
+java -jar target/mock-brevo-*.jar           # run the packaged jar
 ./mvnw test                                     # API tests + JSON shape snapshots (in-memory H2)
 ./mvnw test -Dtest=ClassName#method             # run a single test
 ./mvnw -Plint verify                            # what CI runs: javac -Xlint -Werror + SpotBugs + tests
