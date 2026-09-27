@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -154,6 +155,27 @@ class BrevoApiTest {
         mvc.perform(get("/contact/list/id/7"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+    }
+
+    @Test
+    void adminUiFilesAreRevalidatedOnEveryLoad() throws Exception {
+        // A cached app.js from an older image breaks the newer index.html.
+        for (String path : new String[] {"/index.html", "/js/app.js", "/js/i18n.js", "/css/app.css"}) {
+            mvc.perform(get(path))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", "no-cache"))
+                    .andExpect(header().doesNotExist("Last-Modified"));
+        }
+    }
+
+    @Test
+    void versionEndpointReportsTheBuild() throws Exception {
+        mvc.perform(get("/mock-status/version"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service").value("mock-brevo"))
+                .andExpect(jsonPath("$.version").isNotEmpty())
+                .andExpect(jsonPath("$.upstreamVersion").isNotEmpty())
+                .andExpect(jsonPath("$.buildTime").isNotEmpty());
     }
 
     private long createList(String key, String name) throws Exception {

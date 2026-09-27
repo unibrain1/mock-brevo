@@ -28,6 +28,19 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  # The admin UI loads index.html, js/ and css/ as separate files with fixed
+  # URLs. Without a Cache-Control header, a browser can keep an app.js from an
+  # older image and pair it with a newer index.html (the FR/EN toggle then does
+  # nothing). Send "no-cache" and no Last-Modified, so each page load gets the
+  # files from the running image. A file date is not a safe check: two builds
+  # can give the same file an older date.
+  web:
+    resources:
+      cache:
+        use-last-modified: false
+        cachecontrol:
+          no-cache: true
+
 mock-brevo:
   reveal-keys: ${MOCK_STATUS_REVEAL_KEYS:true}
   default-webhook-url: ${MOCK_DEFAULT_WEBHOOK_URL:}

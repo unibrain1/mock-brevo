@@ -110,6 +110,20 @@
                         <profile>dev</profile>
                     </profiles>
                 </configuration>
+                <executions>
+                    <!-- META-INF/build-info.properties: the admin UI header shows
+                         this version and the upstream base (GET /mock-status/version). -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                        <configuration>
+                            <additionalProperties>
+                                <upstream.version>${upstream.version}</upstream.version>
+                            </additionalProperties>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
