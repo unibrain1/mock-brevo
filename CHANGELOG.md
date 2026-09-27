@@ -8,6 +8,8 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- Docs: README, CLAUDE.md, config comments and the pom description no longer name the upstream author's app. The README explains the API base URL and web UI base URL for apps in Docker without app-specific variables (#16).
+
 ## [1.1.0] — 2026-09-27
 
 Fork release, based on upstream 1.0.0. First release with the fork's own SemVer.

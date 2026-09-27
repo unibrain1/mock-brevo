@@ -5,8 +5,8 @@ mock-brevo:
   smtp:
     enabled: ${MOCK_SMTP_ENABLED:true}
     # Points at Mailpit's SMTP port. Assumes port 1025 is exposed on the host.
-    # If Mailpit runs inside Enoria's Docker without host port mapping, add the
-    # following to enoria/docker-compose.override.yml under services.mailcatcher:
+    # If your SMTP catcher runs in Docker without a host port mapping, publish
+    # port 1025 in its Compose service:
     #   ports:
     #     - "127.0.0.1:1025:1025"
     host: ${MOCK_SMTP_HOST:localhost}
