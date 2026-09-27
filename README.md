@@ -85,18 +85,16 @@ services:
       - "host.docker.internal:host-gateway"
 ```
 
-Then point the backend at `http://host.docker.internal:8080`. Note that this hostname only works **from inside Docker** — the browser on the host still uses `http://localhost:8080`. If the client also exposes deep-links to mock-brevo's UI (e.g. campaign edit pages), you need two distinct settings: one for backend traffic, one for the rendered URL.
+Then point the backend at `http://host.docker.internal:8080/v3`. This hostname works only **from inside Docker**. The browser on the host still uses `http://localhost:8080`.
 
-Example for an Enoria-style setup with split API/app URLs:
+If you run mock-brevo as a service in the same Docker Compose project (the more common setup), the backend uses the service name and internal port instead: `http://mock-brevo:8080/v3`. Publish a port (or route it through a reverse proxy) for browser access.
 
-```env
-# .env — consumed by the PHP backend running in Docker
-BREVO_API_URL=http://host.docker.internal:8080/v3
-# Rendered as a link in the UI, opened by the browser on the host
-BREVO_APP_URL=http://localhost:8080
-```
+So an app that runs in Docker usually needs two base URLs:
 
-If you instead run mock-brevo as a service inside the same Docker Compose project (the more common setup), use the service name and internal port — e.g. `BREVO_API_URL=http://mock-brevo:8080/v3` — and expose it through Traefik or a port mapping for browser access.
+- **API base URL** for backend calls: `http://host.docker.internal:8080/v3` or `http://mock-brevo:8080/v3`.
+- **Web UI base URL** for links that a browser opens: `http://localhost:8080` (or the published port).
+
+If your app links to Brevo's web UI, point that link base at mock-brevo's UI. mock-brevo serves Brevo's deep-link paths `/marketing-campaign/edit/{id}` and `/contact/list/id/{id}`, and shows the matching campaign or list.
 
 ## Configuration
 

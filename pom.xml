@@ -15,7 +15,7 @@
     <artifactId>mock-brevo</artifactId>
     <version>1.1.0</version>
     <name>mock-brevo</name>
-    <description>Local mock of the Brevo API for Enoria dev &amp; integration tests</description>
+    <description>Local mock of the Brevo API for dev &amp; integration tests</description>
 
     <properties>
         <java.version>25</java.version>

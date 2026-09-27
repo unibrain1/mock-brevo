@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     /**
-     * Brevo-style deep-link URLs. When a client (e.g. Enoria's ApiBrevoService) links
+     * Brevo-style deep-link URLs. When a client app links
      * to "app.brevo.com/marketing-campaign/edit/42", we rewrite the base URL to this
      * mock's UI — so the FULL Brevo path is preserved. The frontend JS inspects
      * window.location.pathname to render the matching detail view.

@@ -2,6 +2,8 @@
 
 **English** | [Français](ENDPOINTS.fr.md)
 
+> Written by the upstream author for their app, Enoria. The endpoints and SDK calls apply to any client of the Brevo PHP SDK.
+
 Prioritized list of the endpoints to mock so that Enoria (`/home/adu/git/enoria`) can run against this local server.
 
 ## Context

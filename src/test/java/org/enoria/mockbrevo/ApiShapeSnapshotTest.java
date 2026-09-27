@@ -132,7 +132,7 @@ class ApiShapeSnapshotTest {
         compareAll();
     }
 
-    /** Outbound webhook JSON as received by a client such as Enoria. */
+    /** Outbound webhook JSON as received by a client app. */
     private void captureWebhook() throws Exception {
         CompletableFuture<String> received = new CompletableFuture<>();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
