@@ -255,6 +255,13 @@ class BrevoApiTest {
                                 + "\"messageId\":\"" + messageId + "\",\"apiKey\":\"" + newKey() + "\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value(containsString("different account")));
+        // The rejected fire must not leave a new account behind.
+        String typo = newKey();
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"spam\",\"email\":\"to@example.com\","
+                                + "\"messageId\":\"" + messageId + "\",\"apiKey\":\"" + typo + "\"}"))
+                .andExpect(status().isBadRequest());
+        assertTrue(accounts.findByApiKey(typo).isEmpty());
         mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"" + "x".repeat(41)
                                 + "\",\"email\":\"to@example.com\"}"))
@@ -268,6 +275,22 @@ class BrevoApiTest {
             fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\" \"");
             assertEquals("Bearer default-token", hook.next().authorization());
         }
+    }
+
+    @Test
+    void webhookTokenIsMaskedWhenTheLoggedBodyIsCutInsideIt() throws Exception {
+        // The log keeps the first 16 KB (16384 bytes). With this pad the token value
+        // starts at byte 16354, so the cut falls 30 bytes into it.
+        String pad = "x".repeat(16262);
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"delivered\",\"email\":\"to@example.com\","
+                        + "\"pad\":\"" + pad + "\",\"token\":\"" + "SECRET".repeat(20) + "\"}"));
+        String list = mvc.perform(get("/mock-status/requests?limit=1")).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(list).get("requests").get(0).get("id").asLong();
+        mvc.perform(get("/mock-status/requests/" + id))
+                .andExpect(jsonPath("$.requestTruncated").value(true))
+                .andExpect(jsonPath("$.requestBody", containsString("\"token\":\"***\"")))
+                .andExpect(jsonPath("$.requestBody", not(containsString("SECRET"))));
     }
 
     @Test

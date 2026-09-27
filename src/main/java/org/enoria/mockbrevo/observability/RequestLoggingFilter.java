@@ -31,9 +31,12 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final int MAX_BODY_BYTES = 16 * 1024;
 
-    /** The webhook bearer token in a /mock-webhooks/fire body. Never stored. */
+    /**
+     * The webhook bearer token in a /mock-webhooks/fire body. Never stored. The closing
+     * quote is optional, so a token that the MAX_BODY_BYTES cut splits is still masked.
+     */
     private static final Pattern TOKEN_FIELD =
-            Pattern.compile("(\"token\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"");
+            Pattern.compile("(\"token\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"?");
 
     private final AntPathMatcher matcher = new AntPathMatcher();
     private final RequestLogStore store;

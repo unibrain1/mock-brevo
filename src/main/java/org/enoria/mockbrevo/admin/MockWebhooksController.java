@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import org.enoria.mockbrevo.auth.AccountService;
 import org.enoria.mockbrevo.domain.Account;
+import org.enoria.mockbrevo.domain.AccountRepository;
+import org.enoria.mockbrevo.domain.SentEmailRepository;
 import org.enoria.mockbrevo.webhook.WebhookService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,10 +21,18 @@ public class MockWebhooksController {
 
     private final WebhookService webhookService;
     private final AccountService accountService;
+    private final AccountRepository accounts;
+    private final SentEmailRepository sentEmails;
 
-    public MockWebhooksController(WebhookService webhookService, AccountService accountService) {
+    public MockWebhooksController(
+            WebhookService webhookService,
+            AccountService accountService,
+            AccountRepository accounts,
+            SentEmailRepository sentEmails) {
         this.webhookService = webhookService;
         this.accountService = accountService;
+        this.accounts = accounts;
+        this.sentEmails = sentEmails;
     }
 
     @PostMapping("/fire")
@@ -48,10 +58,18 @@ public class MockWebhooksController {
                         Map.of("error", m.field() + " is longer than " + m.max() + " characters"));
             }
         }
-        // An event with no known messageId still needs an account to be recorded.
-        Account account = body.apiKey != null && !body.apiKey.isBlank()
-                ? accountService.resolveOrProvision(body.apiKey)
-                : null;
+        // An event with no known messageId still needs an account to be recorded. Provision
+        // only then, so a rejected fire (another account's messageId) leaves no new account.
+        Account account = null;
+        if (body.apiKey != null && !body.apiKey.isBlank()) {
+            account = accounts.findByApiKey(body.apiKey).orElse(null);
+            boolean knownMessage = body.messageId != null && sentEmails.findByMessageId(body.messageId).isPresent();
+            if (account == null && !knownMessage) {
+                account = accountService.resolveOrProvision(body.apiKey);
+            } else if (account == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", new WebhookService.AccountMismatch().getMessage()));
+            }
+        }
         boolean recorded;
         try {
             recorded = webhookService.fire(new WebhookService.Fire(

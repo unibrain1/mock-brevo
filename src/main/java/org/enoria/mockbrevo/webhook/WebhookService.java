@@ -94,7 +94,7 @@ public class WebhookService {
     public static final class AccountMismatch extends RuntimeException {
         private static final long serialVersionUID = 1L;
 
-        AccountMismatch() {
+        public AccountMismatch() {
             super("messageId belongs to a different account than apiKey");
         }
     }
@@ -113,8 +113,9 @@ public class WebhookService {
         Account account = sent.map(SentEmail::getAccount).orElse(f.account());
         SendSmtpEmailRequest request = sent.map(this::originalRequest).orElse(null);
 
-        List<String> tags = f.tags() != null ? f.tags()
-                : request != null && request.tags() != null ? request.tags() : List.of();
+        List<String> tags = (f.tags() != null ? f.tags()
+                : request != null && request.tags() != null ? request.tags() : List.<String>of())
+                .stream().filter(t -> t != null && !t.isBlank()).toList();
         String reason = blankToNull(f.reason()) != null ? f.reason() : DEFAULT_REASON.getOrDefault(f.event(), "sent");
         Instant now = Instant.now();
         // Real Brevo events always carry a message-id; receivers may reject one without it.
