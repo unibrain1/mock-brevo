@@ -168,6 +168,8 @@ class BrevoApiTest {
         }
     }
 
+    // Needs META-INF/build-info.properties, which the build-info goal writes
+    // during `./mvnw test`. A test run from an IDE without Maven fails here.
     @Test
     void versionEndpointReportsTheBuild() throws Exception {
         mvc.perform(get("/mock-status/version"))
