@@ -115,8 +115,10 @@
     ['GET',    '/v3/account',                              'getaccount'],
     ['GET',    '/v3/senders',                              'getsenders'],
     ['POST',   '/v3/smtp/email',                           'sendtransacemail'],
-    ['GET',    '/v3/smtp/emails',                          'gettransacemailslist'],
-    ['GET',    '/v3/smtp/statistics/events',               'getemaileventreport'],
+    ['GET',    '/v3/smtp/emails',                          'get-transac-emails-list'],
+    ['GET',    '/v3/smtp/statistics/events',               'get-email-event-report'],
+    ['GET',    '/v3/smtp/blockedContacts',                 'get-transac-blocked-contacts'],
+    ['DELETE', '/v3/smtp/blockedContacts/*',               'unblock-or-resubscribe-a-transactional-contact'],
     ['GET',    '/v3/smtp/templates',                       'getsmtptemplates'],
     ['POST',   '/v3/smtp/templates',                       'createsmtptemplate'],
     ['GET',    '/v3/smtp/templates/*',                     'getsmtptemplate'],
@@ -277,7 +279,7 @@
     return haystacks.some(h => String(h || '').toLowerCase().includes(q));
   };
 
-  // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'campaigns' | 'lists' | null)
+  // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'campaigns' | 'lists' | 'blocked' | null)
   const accountDrilldown = new Map();
 
   const renderAccounts = (data) => {
@@ -299,6 +301,7 @@
         { k: 'templates',  label: 'templates' },
         { k: 'folders',    label: 'folders' },
         { k: 'senders',    label: 'senders' },
+        { k: 'blocked',    label: 'blocked',   drill: 'blocked' },
       ];
       const cells = counterItems.map(item => {
         const v = c[item.k] || 0;
@@ -375,6 +378,8 @@
         container.innerHTML = renderAccountCampaigns(data);
       } else if (kind === 'lists') {
         container.innerHTML = renderAccountLists(data);
+      } else if (kind === 'blocked') {
+        container.innerHTML = renderAccountBlocked(data);
       }
     } catch (e) {
       container.innerHTML = `<div class="muted" style="padding:12px;color:var(--err)">${esc(t('common.errorPrefix', { msg: e.message }))}</div>`;
@@ -428,6 +433,31 @@
         <table>
           <thead>
             <tr>${['id', 'name', 'contacts', 'folder'].map(k => `<th>${esc(t('drill.col.' + k))}</th>`).join('')}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  };
+
+  const renderAccountBlocked = (data) => {
+    const items = data.contacts || [];
+    if (!items.length) {
+      return `<div class="empty" style="padding:16px">${esc(t('drill.noBlocked'))}</div>`;
+    }
+    const rows = items.map(c => `
+      <tr>
+        <td class="mono">${esc(c.email)}</td>
+        <td class="mono muted">${esc(c.senderEmail || '—')}</td>
+        <td title="${esc(c.reason?.message || '')}"><span class="badge">${esc(c.reason?.code || '')}</span></td>
+        <td class="mono muted" title="${esc(c.blockedAt)}">${fmtRelative(c.blockedAt)}</td>
+      </tr>
+    `).join('');
+    return `
+      <div class="drill-inner">
+        <div class="drill-title">${esc(t('drill.blockedTitle', { n: data.count }))}</div>
+        <table>
+          <thead>
+            <tr>${['email', 'sender', 'reason', 'blockedAt'].map(k => `<th>${esc(t('drill.col.' + k))}</th>`).join('')}</tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>

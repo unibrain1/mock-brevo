@@ -25,6 +25,7 @@ Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transac
   - direct links to the matching Brevo documentation page for each logged endpoint
 - **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL. See [Webhook simulation](#webhook-simulation).
 - **Transactional event report** (`GET /v3/smtp/statistics/events`) — every send (`requests`) and every simulated webhook event, with Brevo's filters (`startDate`/`endDate` or `days`, `email`, `event`, `tags`, `messageId`, `templateId`), paging and `sort`.
+- **Transactional block list** (`GET /v3/smtp/blockedContacts`, `DELETE /v3/smtp/blockedContacts/{email}`) — a fired `hard_bounce`, `spam` or `unsubscribed` blocks the recipient. Tests can also seed entries through an admin route. The admin UI shows a `blocked` counter with a drill-down per account.
 
 See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 
@@ -160,6 +161,9 @@ Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webho
 | `GET` | `/mock-status/requests/{id}` | Full call detail (headers + body) |
 | `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant |
 | `POST` | `/mock-status/accounts/{apiKey}/campaigns` | Create a faker campaign |
+| `GET` | `/mock-status/accounts/{apiKey}/blocked` | A tenant's block list |
+| `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`) |
+| `DELETE` | `/mock-status/accounts/{apiKey}/blocked/{email}` | Unblock a contact |
 | `POST` | `/mock-webhooks/fire` | Trigger an outbound Brevo webhook |
 
 ## Languages

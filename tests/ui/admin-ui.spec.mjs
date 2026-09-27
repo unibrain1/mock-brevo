@@ -82,6 +82,27 @@ test.describe('toggle', () => {
   });
 });
 
+test.describe('block list', () => {
+  test.use({ locale: 'en-US' });
+
+  test('blocked counter opens a translated drill-down', async ({ page, request }) => {
+    const seeded = await request.post(`/mock-status/accounts/${API_KEY}/blocked`,
+      { data: { email: 'blocked-ui@example.com', reason: 'hardBounce' } });
+    expect(seeded.status()).toBe(201);
+
+    await page.goto('/');
+    await page.locator('#filter').fill(API_KEY);
+    await page.locator(`.counter-drill[data-drill="blocked"][data-api-key="${API_KEY}"]`).click();
+    const drill = page.locator('.drill-wrap[data-kind="blocked"]');
+    await expect(drill).toContainText('Blocked contacts (1)');
+    await expect(drill).toContainText('blocked-ui@example.com');
+    await expect(drill).toContainText('hardBounce');
+
+    await page.locator('#langToggle').click();
+    await expect(page.locator('.drill-wrap[data-kind="blocked"]')).toContainText('Contacts bloqués (1)');
+  });
+});
+
 test.describe('deep links', () => {
   test.use({ locale: 'en-US' });
 

@@ -7,6 +7,7 @@ import java.util.Map;
 import org.enoria.mockbrevo.config.MockBrevoProperties;
 import org.enoria.mockbrevo.domain.Account;
 import org.enoria.mockbrevo.domain.AccountRepository;
+import org.enoria.mockbrevo.domain.BlockedContactRepository;
 import org.enoria.mockbrevo.domain.ContactListRepository;
 import org.enoria.mockbrevo.domain.ContactRepository;
 import org.enoria.mockbrevo.domain.EmailCampaignRepository;
@@ -45,6 +46,7 @@ public class MockStatusController {
     private final MockBrevoProperties properties;
     private final RequestLogStore requestLog;
     private final CampaignFaker campaignFaker;
+    private final BlockedContactRepository blocked;
     private final ObjectProvider<BuildProperties> buildProperties;
 
     public MockStatusController(
@@ -59,6 +61,7 @@ public class MockStatusController {
             MockBrevoProperties properties,
             RequestLogStore requestLog,
             CampaignFaker campaignFaker,
+            BlockedContactRepository blocked,
             ObjectProvider<BuildProperties> buildProperties) {
         this.accounts = accounts;
         this.sentEmails = sentEmails;
@@ -71,6 +74,7 @@ public class MockStatusController {
         this.properties = properties;
         this.requestLog = requestLog;
         this.campaignFaker = campaignFaker;
+        this.blocked = blocked;
         this.buildProperties = buildProperties;
     }
 
@@ -320,7 +324,8 @@ public class MockStatusController {
                 "campaigns", campaigns.countByAccount(a),
                 "templates", templates.countByAccount(a),
                 "folders", folders.countByAccount(a),
-                "senders", senders.countByAccount(a)
+                "senders", senders.countByAccount(a),
+                "blocked", blocked.countByAccount(a)
         ));
         return m;
     }

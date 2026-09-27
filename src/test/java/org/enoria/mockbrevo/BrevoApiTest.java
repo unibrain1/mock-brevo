@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
@@ -419,6 +420,79 @@ class BrevoApiTest {
                     .andExpect(jsonPath("$.code").value("invalid_parameter"))
                     .andExpect(jsonPath("$.message").isNotEmpty());
         }
+    }
+
+    @Test
+    void firedBlockingEventsFillTheBlockListForTheAccountOnly() throws Exception {
+        String key = newKey();
+        String other = newKey();
+        try (Hook hook = Hook.start()) {
+            String m1 = sendEmail(key, "bounce@example.com", "[\"car_verification\"]");
+            String m2 = sendEmail(key, "spam@example.com", "[\"registry\"]");
+            fire(hook.url(), "hard_bounce", "bounce@example.com", m1, "");
+            fire(hook.url(), "spam", "spam@example.com", m2, "");
+            fire(hook.url(), "delivered", "spam@example.com", m2, "");
+            hook.next();
+            hook.next();
+            hook.next();
+        }
+        mvc.perform(get("/v3/smtp/blockedContacts").header("api-key", key).param("sort", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2))
+                .andExpect(jsonPath("$.contacts[0].email").value("bounce@example.com"))
+                .andExpect(jsonPath("$.contacts[0].senderEmail").value("s@example.com"))
+                .andExpect(jsonPath("$.contacts[0].reason.code").value("hardBounce"))
+                .andExpect(jsonPath("$.contacts[0].reason.message")
+                        .value("This contact's email address generated a hard bounce"))
+                .andExpect(jsonPath("$.contacts[0].blockedAt").value(matchesPattern(
+                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+00:00")))
+                .andExpect(jsonPath("$.contacts[1].reason.code").value("contactFlaggedAsSpam"));
+        mvc.perform(get("/v3/smtp/blockedContacts").header("api-key", other))
+                .andExpect(jsonPath("$.count").value(0));
+        mvc.perform(get("/mock-status"))
+                .andExpect(jsonPath("$.accounts[?(@.apiKey == '" + key + "')].counters.blocked").value(hasItem(2)));
+    }
+
+    @Test
+    void blockListPagesFiltersAndUnblocks() throws Exception {
+        String key = newKey();
+        mvc.perform(get("/v3/account").header("api-key", key)).andExpect(status().isOk());
+        for (String email : new String[] {"a@example.com", "b@example.com", "c@example.com"}) {
+            mvc.perform(post("/mock-status/accounts/" + key + "/blocked").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"" + email + "\",\"senderEmail\":\""
+                                    + (email.startsWith("c") ? "other@example.com" : "s@example.com")
+                                    + "\",\"reason\":\"unsubscribedViaEmail\"}"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.reason.code").value("unsubscribedViaEmail"));
+        }
+        String url = "/v3/smtp/blockedContacts";
+        mvc.perform(get(url).header("api-key", key).param("limit", "2").param("offset", "0"))
+                .andExpect(jsonPath("$.count").value(3))
+                .andExpect(jsonPath("$.contacts.length()").value(2))
+                .andExpect(jsonPath("$.contacts[0].email").value("c@example.com"));
+        mvc.perform(get(url).header("api-key", key).param("senders", "other@example.com"))
+                .andExpect(jsonPath("$.count").value(1));
+        mvc.perform(get(url).header("api-key", key).param("startDate", today()).param("endDate", today()))
+                .andExpect(jsonPath("$.count").value(3));
+        mvc.perform(get(url).header("api-key", key).param("startDate", "2000-01-01").param("endDate", "2000-01-01"))
+                .andExpect(jsonPath("$.count").value(0));
+
+        mvc.perform(delete(url + "/a@example.com").header("api-key", key))
+                .andExpect(status().isNoContent());
+        mvc.perform(delete(url + "/a@example.com").header("api-key", key))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("document_not_found"));
+        mvc.perform(get("/mock-status/accounts/" + key + "/blocked"))
+                .andExpect(jsonPath("$.count").value(2));
+
+        for (String[] q : new String[][] {{"limit", "101"}, {"offset", "-1"}, {"sort", "up"}, {"startDate", today()}}) {
+            mvc.perform(get(url).header("api-key", key).param(q[0], q[1]))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("invalid_parameter"));
+        }
+        mvc.perform(post("/mock-status/accounts/" + key + "/blocked").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"x@example.com\",\"reason\":\"nope\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     private static String today() {

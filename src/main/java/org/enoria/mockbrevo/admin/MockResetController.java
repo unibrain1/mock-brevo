@@ -3,6 +3,7 @@ package org.enoria.mockbrevo.admin;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.enoria.mockbrevo.domain.AccountRepository;
+import org.enoria.mockbrevo.domain.BlockedContactRepository;
 import org.enoria.mockbrevo.domain.ContactListRepository;
 import org.enoria.mockbrevo.domain.ContactRepository;
 import org.enoria.mockbrevo.domain.EmailEventRepository;
@@ -32,6 +33,7 @@ public class MockResetController {
     private final SenderRepository senders;
     private final RequestLogStore requestLog;
     private final EmailEventRepository emailEvents;
+    private final BlockedContactRepository blocked;
 
     public MockResetController(
             AccountRepository accounts,
@@ -43,7 +45,8 @@ public class MockResetController {
             FolderRepository folders,
             SenderRepository senders,
             RequestLogStore requestLog,
-            EmailEventRepository emailEvents) {
+            EmailEventRepository emailEvents,
+            BlockedContactRepository blocked) {
         this.accounts = accounts;
         this.sentEmails = sentEmails;
         this.contacts = contacts;
@@ -54,6 +57,7 @@ public class MockResetController {
         this.senders = senders;
         this.requestLog = requestLog;
         this.emailEvents = emailEvents;
+        this.blocked = blocked;
     }
 
     @PostMapping("/reset")
@@ -62,6 +66,7 @@ public class MockResetController {
         Map<String, Object> deleted = new LinkedHashMap<>();
         deleted.put("sentEmails", sentEmails.count());
         deleted.put("emailEvents", emailEvents.count());
+        deleted.put("blockedContacts", blocked.count());
         deleted.put("contacts", contacts.count());
         deleted.put("lists", lists.count());
         deleted.put("campaigns", campaigns.count());
@@ -74,6 +79,7 @@ public class MockResetController {
         // contacts.deleteAll() (not deleteAllInBatch) so the @ManyToMany "contact_in_list"
         // join table is cleaned up by Hibernate before we drop the lists.
         emailEvents.deleteAllInBatch();
+        blocked.deleteAllInBatch();
         sentEmails.deleteAllInBatch();
         contacts.deleteAll();
         lists.deleteAllInBatch();

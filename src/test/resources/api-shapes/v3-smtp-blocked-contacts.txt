@@ -1,0 +1,8 @@
+status: 200
+content-type: application/json
+$.contacts[].blockedAt : string<datetime-offset>
+$.contacts[].email : string
+$.contacts[].reason.code : string
+$.contacts[].reason.message : string
+$.contacts[].senderEmail : string
+$.count : integer

@@ -133,6 +133,14 @@ class ApiShapeSnapshotTest {
         // Reads the events the webhook step recorded (plus the sends).
         capture("v3-smtp-statistics-events", "GET", "/v3/smtp/statistics/events?sort=desc", null, key);
         capture("v3-smtp-statistics-events-400", "GET", "/v3/smtp/statistics/events?startDate=2026-01-01", null, key);
+        // The fired hard_bounce and spam blocked the recipient.
+        capture("v3-smtp-blocked-contacts", "GET", "/v3/smtp/blockedContacts?sort=desc", null, key);
+        capture("v3-smtp-blocked-contacts-400", "GET", "/v3/smtp/blockedContacts?limit=101", null, key);
+        capture("mock-status-blocked-add", "POST", "/mock-status/accounts/" + key + "/blocked",
+                "{\"email\":\"seeded@example.com\"}", null);
+        capture("mock-status-blocked", "GET", "/mock-status/accounts/" + key + "/blocked", null, null);
+        capture("v3-smtp-blocked-contacts-delete", "DELETE", "/v3/smtp/blockedContacts/seeded@example.com", null, key);
+        capture("v3-smtp-blocked-contacts-delete-404", "DELETE", "/v3/smtp/blockedContacts/seeded@example.com", null, key);
 
         compareAll();
     }
