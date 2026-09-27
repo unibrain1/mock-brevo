@@ -117,11 +117,11 @@ Keep only the `origin` remote (unibrain1/mock-brevo). Do not keep a permanent `u
 - If a clone has a remote other than `origin`, run `gh repo set-default unibrain1/mock-brevo` once. `gh` then uses the fork for read and write commands. With only `origin`, `gh` has no other repo to pick.
 - Also pass `--repo unibrain1/mock-brevo` to `gh` write commands, as a second safeguard.
 
-To merge an upstream release, fetch it from the URL. This adds no remote and imports no tags (an upstream tag such as `v1.1.0` would clash with the fork's own). The merge always makes a merge commit, not a fast-forward:
+To merge an upstream release, fetch it from the URL. This adds no remote and imports no tags (an upstream tag such as `v1.1.0` would clash with the fork's own). `--no-ff` always makes a merge commit:
 
 ```bash
 git fetch --no-tags https://github.com/c0boleis/mock-brevo.git refs/tags/vX.Y.Z   # an upstream tag, or a branch name
-git merge FETCH_HEAD
+git merge --no-ff FETCH_HEAD
 # then update <upstream.version> in pom.xml
 ```
 
