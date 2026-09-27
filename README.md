@@ -121,6 +121,7 @@ All settings are environment variables, sensible defaults for dev:
 |---|---|---|
 | `GET` | `/` | Web UI |
 | `GET` | `/mock-status` | All provisioned accounts + counters |
+| `GET` | `/mock-status/version` | Build version and upstream base (shown in the UI header) |
 | `GET` | `/mock-status/requests` | Last N REST calls (metadata) |
 | `GET` | `/mock-status/requests/{id}` | Full call detail (headers + body) |
 | `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant |

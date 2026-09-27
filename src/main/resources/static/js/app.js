@@ -942,9 +942,30 @@
     if (label) label.textContent = I18N.lang().toUpperCase();
   };
 
+  // ============================================================
+  // VERSION badge in the header — fetched once, re-titled on toggle.
+  // ============================================================
+  let buildInfo = null;
+  const applyVersion = () => {
+    const badge = $('#versionBadge');
+    if (!badge || !buildInfo || !buildInfo.version) return;
+    badge.textContent = 'v' + buildInfo.version;
+    badge.title = t('version.title', {
+      upstream: buildInfo.upstreamVersion || '?',
+      time: buildInfo.buildTime
+        ? new Date(buildInfo.buildTime).toLocaleString(I18N.lang() === 'fr' ? 'fr-FR' : 'en-GB',
+          { dateStyle: 'medium', timeStyle: 'short' })
+        : '?',
+    });
+  };
+  fetchJson('/mock-status/version')
+    .then(d => { buildInfo = d; applyVersion(); })
+    .catch(() => { /* no badge: the rest of the UI still works */ });
+
   $('#langToggle')?.addEventListener('click', () => {
     I18N.setLang(I18N.lang() === 'fr' ? 'en' : 'fr');
     applyLangLabel();
+    applyVersion();
     applyTheme(getTheme());
     if (isDeepLinkPath()) {
       handleDeepLink();

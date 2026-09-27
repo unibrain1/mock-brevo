@@ -24,6 +24,13 @@ test.describe('language detection', () => {
   });
 });
 
+test('header shows the build version', async ({ page, request }) => {
+  const { version } = await (await request.get('/mock-status/version')).json();
+  await page.goto('/');
+  await expect(page.locator('#versionBadge')).toHaveText(`v${version}`);
+  await expect(page.locator('#versionBadge')).toHaveAttribute('title', /upstream/);
+});
+
 test.describe('language detection (fr)', () => {
   test.use({ locale: 'fr-FR' });
 

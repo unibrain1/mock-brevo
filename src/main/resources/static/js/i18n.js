@@ -23,6 +23,7 @@
     fr: {
       'lang.toggleTitle': 'Changer de langue (FR / EN)',
       'theme.toggleTitle': 'Basculer thème clair / sombre',
+      'version.title': 'Basé sur upstream {upstream} · build {time}',
       'theme.light': 'clair',
       'theme.dark': 'sombre',
 
@@ -162,6 +163,7 @@
     en: {
       'lang.toggleTitle': 'Switch language (FR / EN)',
       'theme.toggleTitle': 'Toggle light / dark theme',
+      'version.title': 'Based on upstream {upstream} · built {time}',
       'theme.light': 'light',
       'theme.dark': 'dark',
 

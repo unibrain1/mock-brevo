@@ -17,6 +17,8 @@ import org.enoria.mockbrevo.domain.SentEmailRepository;
 import org.enoria.mockbrevo.domain.SmtpTemplateRepository;
 import org.enoria.mockbrevo.faker.CampaignFaker;
 import org.enoria.mockbrevo.observability.RequestLogStore;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.data.domain.PageRequest;
@@ -43,6 +45,7 @@ public class MockStatusController {
     private final MockBrevoProperties properties;
     private final RequestLogStore requestLog;
     private final CampaignFaker campaignFaker;
+    private final ObjectProvider<BuildProperties> buildProperties;
 
     public MockStatusController(
             AccountRepository accounts,
@@ -55,7 +58,8 @@ public class MockStatusController {
             SenderRepository senders,
             MockBrevoProperties properties,
             RequestLogStore requestLog,
-            CampaignFaker campaignFaker) {
+            CampaignFaker campaignFaker,
+            ObjectProvider<BuildProperties> buildProperties) {
         this.accounts = accounts;
         this.sentEmails = sentEmails;
         this.contacts = contacts;
@@ -67,6 +71,7 @@ public class MockStatusController {
         this.properties = properties;
         this.requestLog = requestLog;
         this.campaignFaker = campaignFaker;
+        this.buildProperties = buildProperties;
     }
 
     @GetMapping("/accounts/{apiKey}/campaigns")
@@ -254,6 +259,21 @@ public class MockStatusController {
                 "accountsCount", all.size(),
                 "accounts", all.stream().map(this::toSummary).toList()
         );
+    }
+
+    // build-info.properties is absent when the app runs from an IDE without Maven,
+    // so the version fields are then left out instead of failing the endpoint.
+    @GetMapping("/version")
+    public Map<String, Object> version() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("service", "mock-brevo");
+        BuildProperties build = buildProperties.getIfAvailable();
+        if (build != null) {
+            out.put("version", build.getVersion());
+            out.put("upstreamVersion", build.get("upstream.version"));
+            out.put("buildTime", build.getTime());
+        }
+        return out;
     }
 
     @GetMapping("/accounts/{apiKey}/emails")
