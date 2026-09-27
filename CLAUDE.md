@@ -111,7 +111,14 @@ The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.
 2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`; `latest` only ever comes from a release tag (a manual `workflow_dispatch` run from `main` publishes just a `main` tag; its `version` input sets only the `IMAGE_VERSION` build-arg, not the image tags).
 3. Only tag forward: re-running an older release moves `latest` back to it.
 
-`remote.upstream.tagOpt` is set to `--no-tags` so fetching upstream never imports its tags (a future upstream `v1.1.0` would clash with the fork's). Use `git fetch upstream --no-tags` in fresh clones. When merging an upstream release, update `<upstream.version>`.
+This clone has no `upstream` remote, only `origin` (unibrain1/mock-brevo). With an `upstream` remote, `gh` can pick c0boleis/mock-brevo as the target of `gh pr create`. Pass `--repo unibrain1/mock-brevo` to `gh` write commands in any case. To merge an upstream release, add the remote for that task only and fetch without tags (a future upstream `v1.1.0` would clash with the fork's), then remove it again:
+
+```bash
+git remote add upstream https://github.com/c0boleis/mock-brevo.git
+git fetch upstream --no-tags
+# merge the release, then update <upstream.version> in pom.xml
+git remote remove upstream
+```
 
 ## Endpoint coverage
 
