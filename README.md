@@ -91,7 +91,7 @@ If you run mock-brevo as a service in the same Docker Compose project (the more 
 
 So an app that runs in Docker usually needs two base URLs:
 
-- **API base URL** for backend calls: `http://host.docker.internal:8080/v3` or `http://mock-brevo:8080/v3`.
+- **API base URL** for backend calls: `http://host.docker.internal:8080/v3` or `http://mock-brevo:8080/v3`. This is the SDK host form. If your client adds `/v3` to its paths, drop `/v3` here.
 - **Web UI base URL** for links that a browser opens: `http://localhost:8080` (or the published port).
 
 If your app links to Brevo's web UI, point that link base at mock-brevo's UI. mock-brevo serves Brevo's deep-link paths `/marketing-campaign/edit/{id}` and `/contact/list/id/{id}`, and shows the matching campaign or list.
