@@ -1,8 +1,11 @@
 package org.enoria.mockbrevo;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
@@ -10,13 +13,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import org.enoria.mockbrevo.domain.Account;
+import org.enoria.mockbrevo.domain.AccountRepository;
+import org.enoria.mockbrevo.domain.EmailEventRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -28,7 +42,8 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:mockbrevo-test;DB_CLOSE_DELAY=-1;MODE=LEGACY",
         "mock-brevo.smtp.enabled=false",
-        "mock-brevo.auto-fire-delivered=false"
+        "mock-brevo.auto-fire-delivered=false",
+        "mock-brevo.webhook-token=default-token"
 })
 @AutoConfigureMockMvc
 class BrevoApiTest {
@@ -38,6 +53,12 @@ class BrevoApiTest {
 
     @Autowired
     private ObjectMapper json;
+
+    @Autowired
+    private AccountRepository accounts;
+
+    @Autowired
+    private EmailEventRepository emailEvents;
 
     private static String newKey() {
         return "test-" + UUID.randomUUID();
@@ -178,6 +199,168 @@ class BrevoApiTest {
                 .andExpect(jsonPath("$.version").isNotEmpty())
                 .andExpect(jsonPath("$.upstreamVersion").isNotEmpty())
                 .andExpect(jsonPath("$.buildTime").isNotEmpty());
+    }
+
+    @Test
+    void firedWebhookCopiesTagsFromTheSentEmailAndSendsTheToken() throws Exception {
+        String key = newKey();
+        try (Hook hook = Hook.start()) {
+            String messageId = sendEmail(key, "to@example.com", "[\"car_verification\"]");
+
+            fire(hook.url(), "hard_bounce", "to@example.com", messageId, ",\"token\":\"per-call\"");
+            Hook.Request r = hook.next();
+            assertEquals("Bearer per-call", r.authorization());
+            JsonNode body = json.readTree(r.body());
+            assertEquals("car_verification", body.get("tag").asString());
+            assertEquals("car_verification", body.get("tags").get(0).asString());
+            assertEquals(messageId, body.get("message-id").asString());
+
+            // Fire-body tags replace the copied ones; no token falls back to mock-brevo.webhook-token.
+            fire(hook.url(), "delivered", "to@example.com", messageId, ",\"tags\":[\"override\"]");
+            r = hook.next();
+            assertEquals("Bearer default-token", r.authorization());
+            assertEquals("override", json.readTree(r.body()).get("tag").asString());
+        }
+    }
+
+    @Test
+    void firedEventsAreRecordedUnderTheSendingAccount() throws Exception {
+        String key = newKey();
+        String other = newKey();
+        try (Hook hook = Hook.start()) {
+            String messageId = sendEmail(key, "to@example.com", "[\"registry\"]");
+            fire(hook.url(), "hard_bounce", "to@example.com", messageId, "")
+                    .andExpect(jsonPath("$.recorded").value(true));
+            // No known messageId: recorded only when an apiKey names the account.
+            fire(hook.url(), "spam", "x@example.com", null, ",\"apiKey\":\"" + other + "\"")
+                    .andExpect(jsonPath("$.recorded").value(true));
+            fire(hook.url(), "spam", "y@example.com", null, "")
+                    .andExpect(jsonPath("$.recorded").value(false));
+            hook.next();
+            hook.next();
+            hook.next();
+        }
+        Account account = accounts.findByApiKey(key).orElseThrow();
+        Account otherAccount = accounts.findByApiKey(other).orElseThrow();
+        assertEquals(1, emailEvents.countByAccount(account));
+        assertEquals(1, emailEvents.countByAccount(otherAccount));
+    }
+
+    @Test
+    void fireRejectsAnotherAccountsMessageIdAndOverlongValues() throws Exception {
+        String owner = newKey();
+        String messageId = sendEmail(owner, "to@example.com", "[\"registry\"]");
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"spam\",\"email\":\"to@example.com\","
+                                + "\"messageId\":\"" + messageId + "\",\"apiKey\":\"" + newKey() + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("different account")));
+        // The rejected fire must not leave a new account behind.
+        String typo = newKey();
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"spam\",\"email\":\"to@example.com\","
+                                + "\"messageId\":\"" + messageId + "\",\"apiKey\":\"" + typo + "\"}"))
+                .andExpect(status().isBadRequest());
+        assertTrue(accounts.findByApiKey(typo).isEmpty());
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"" + "x".repeat(41)
+                                + "\",\"email\":\"to@example.com\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("event is longer than 40 characters"));
+    }
+
+    @Test
+    void blankTokenFallsBackToTheDefault() throws Exception {
+        try (Hook hook = Hook.start()) {
+            fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\" \"");
+            assertEquals("Bearer default-token", hook.next().authorization());
+        }
+    }
+
+    @Test
+    void webhookTokenIsMaskedWhenTheLoggedBodyIsCutInsideIt() throws Exception {
+        // The log keeps the first 16 KB (16384 bytes). With this pad the token value
+        // starts at byte 16354, so the cut falls 30 bytes into it.
+        String pad = "x".repeat(16262);
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"delivered\",\"email\":\"to@example.com\","
+                        + "\"pad\":\"" + pad + "\",\"token\":\"" + "SECRET".repeat(20) + "\"}"));
+        String list = mvc.perform(get("/mock-status/requests?limit=1")).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(list).get("requests").get(0).get("id").asLong();
+        mvc.perform(get("/mock-status/requests/" + id))
+                .andExpect(jsonPath("$.requestTruncated").value(true))
+                .andExpect(jsonPath("$.requestBody", containsString("\"token\":\"***\"")))
+                .andExpect(jsonPath("$.requestBody", not(containsString("SECRET"))));
+    }
+
+    @Test
+    void webhookTokenIsNotKeptInTheRequestLog() throws Exception {
+        try (Hook hook = Hook.start()) {
+            fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\"do-not-log-me\"");
+            // No messageId in the fire body: the webhook still carries one.
+            assertTrue(json.readTree(hook.next().body()).get("message-id").asString().endsWith("@mock-brevo.local>"));
+        }
+        String list = mvc.perform(get("/mock-status/requests?limit=1"))
+                .andReturn().getResponse().getContentAsString();
+        long id = json.readTree(list).get("requests").get(0).get("id").asLong();
+        mvc.perform(get("/mock-status/requests/" + id))
+                .andExpect(jsonPath("$.path").value("/mock-webhooks/fire"))
+                .andExpect(jsonPath("$.requestBody", containsString("\"token\":\"***\"")))
+                .andExpect(jsonPath("$.requestBody", not(containsString("do-not-log-me"))));
+    }
+
+    private String sendEmail(String key, String to, String tagsJson) throws Exception {
+        String response = mvc.perform(post("/v3/smtp/email").header("api-key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sender\":{\"email\":\"s@example.com\"},\"to\":[{\"email\":\"" + to + "\"}],"
+                                + "\"subject\":\"Hi\",\"htmlContent\":\"<p>x</p>\",\"tags\":" + tagsJson + "}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return json.readTree(response).get("messageId").asString();
+    }
+
+    private ResultActions fire(
+            String url, String event, String email, String messageId, String extra) throws Exception {
+        return mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"" + url + "\",\"event\":\"" + event + "\",\"email\":\"" + email + "\""
+                                + (messageId != null ? ",\"messageId\":\"" + messageId + "\"" : "") + extra + "}"))
+                .andExpect(status().isAccepted());
+    }
+
+    /** A local HTTP receiver for outbound webhooks. */
+    private record Hook(HttpServer server,
+                        BlockingQueue<Request> received) implements AutoCloseable {
+
+        record Request(String authorization, String body) {}
+
+        static Hook start() throws IOException {
+            var queue = new LinkedBlockingQueue<Request>();
+            var server = HttpServer.create(
+                    new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/hook", exchange -> {
+                queue.add(new Request(exchange.getRequestHeaders().getFirst("Authorization"),
+                        new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            server.start();
+            return new Hook(server, queue);
+        }
+
+        String url() {
+            return "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
+        }
+
+        Request next() throws InterruptedException {
+            Request r = received.poll(10, TimeUnit.SECONDS);
+            if (r == null) throw new AssertionError("no webhook received");
+            return r;
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
+        }
     }
 
     private long createList(String key, String name) throws Exception {

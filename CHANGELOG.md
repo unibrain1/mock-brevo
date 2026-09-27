@@ -8,6 +8,7 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- Webhooks match real Brevo deliveries (#19). They send an optional bearer token (`token` in the fire body, or `MOCK_WEBHOOK_TOKEN`), copy `tags`, `tag`, `subject`, `sender_email`, `template_id` and `X-Mailin-custom` from the sent email, add `id`, `ts_event`, `ts_epoch`, `uuid` and `sending_ip`, and use Brevo's `YYYY-MM-DD HH:MM:SS` `date` and field set per event. They go out as HTTP/1.1 with a `Content-Length`. `POST /mock-webhooks/fire` also accepts `tags`, `apiKey` and `link`, and returns `recorded`. Every fired event is stored in a new shared email-event table, which `POST /mock/reset` clears.
 - Docs: README, CLAUDE.md, config comments and the pom description no longer name the upstream author's app. The README explains the API base URL and web UI base URL for apps in Docker without app-specific variables (#16).
 
 ## [1.1.0] — 2026-09-27

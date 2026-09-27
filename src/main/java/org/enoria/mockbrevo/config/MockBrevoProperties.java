@@ -8,6 +8,7 @@ public class MockBrevoProperties {
     private boolean revealKeys = true;
     private String defaultWebhookUrl = "";
     private boolean autoFireDelivered = false;
+    private String webhookToken = "";
     private Smtp smtp = new Smtp();
 
     public boolean isRevealKeys() { return revealKeys; }
@@ -18,6 +19,9 @@ public class MockBrevoProperties {
 
     public boolean isAutoFireDelivered() { return autoFireDelivered; }
     public void setAutoFireDelivered(boolean autoFireDelivered) { this.autoFireDelivered = autoFireDelivered; }
+
+    public String getWebhookToken() { return webhookToken; }
+    public void setWebhookToken(String webhookToken) { this.webhookToken = webhookToken; }
 
     public Smtp getSmtp() { return smtp; }
     public void setSmtp(Smtp smtp) { this.smtp = smtp; }

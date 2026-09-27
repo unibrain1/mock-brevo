@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.Map;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -29,6 +30,13 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     };
 
     private static final int MAX_BODY_BYTES = 16 * 1024;
+
+    /**
+     * The webhook bearer token in a /mock-webhooks/fire body. Never stored. The closing
+     * quote is optional, so a token that the MAX_BODY_BYTES cut splits is still masked.
+     */
+    private static final Pattern TOKEN_FIELD =
+            Pattern.compile("(\"token\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"?");
 
     private final AntPathMatcher matcher = new AntPathMatcher();
     private final RequestLogStore store;
@@ -65,6 +73,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             int respSize = respBytes.length;
 
             Capture reqCap = capture(reqBytes);
+            if (reqCap.text != null && path.startsWith("/mock-webhooks/")) {
+                reqCap = new Capture(TOKEN_FIELD.matcher(reqCap.text).replaceAll("$1\"***\""), reqCap.truncated);
+            }
             Capture respCap = capture(respBytes);
 
             Map<String, String> reqHeaders = extractRequestHeaders(wreq);
