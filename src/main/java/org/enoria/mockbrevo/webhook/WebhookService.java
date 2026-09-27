@@ -20,6 +20,8 @@ import org.enoria.mockbrevo.events.EmailEventService;
 import org.enoria.mockbrevo.events.EmailEventService.EventData;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -88,25 +90,42 @@ public class WebhookService {
             String link,
             List<String> tags) {}
 
-    /** @return true if the event was recorded (an account was known). */
+    /** The fire names an account and a messageId that belongs to a different account. */
+    public static final class AccountMismatch extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        AccountMismatch() {
+            super("messageId belongs to a different account than apiKey");
+        }
+    }
+
+    /**
+     * @return true if the event was recorded (an account was known)
+     * @throws AccountMismatch if {@code f.account()} is set and {@code messageId} is another account's email
+     */
     @Transactional
     public boolean fire(Fire f) {
-        Optional<SentEmail> sent = Optional.ofNullable(f.messageId()).flatMap(sentEmails::findByMessageId);
+        String givenMessageId = blankToNull(f.messageId());
+        Optional<SentEmail> sent = Optional.ofNullable(givenMessageId).flatMap(sentEmails::findByMessageId);
+        if (f.account() != null && sent.isPresent() && !sent.get().getAccount().getId().equals(f.account().getId())) {
+            throw new AccountMismatch();
+        }
         Account account = sent.map(SentEmail::getAccount).orElse(f.account());
         SendSmtpEmailRequest request = sent.map(this::originalRequest).orElse(null);
 
         List<String> tags = f.tags() != null ? f.tags()
                 : request != null && request.tags() != null ? request.tags() : List.of();
-        String reason = f.reason() != null ? f.reason() : DEFAULT_REASON.getOrDefault(f.event(), "sent");
+        String reason = blankToNull(f.reason()) != null ? f.reason() : DEFAULT_REASON.getOrDefault(f.event(), "sent");
         Instant now = Instant.now();
         // Real Brevo events always carry a message-id; receivers may reject one without it.
-        String messageId = f.messageId() != null ? f.messageId() : "<" + UUID.randomUUID() + "@mock-brevo.local>";
+        String messageId = givenMessageId != null ? givenMessageId : "<" + UUID.randomUUID() + "@mock-brevo.local>";
+        String link = blankToNull(f.link());
         EventData data = new EventData(
                 messageId,
                 f.email(),
                 f.event(),
                 reason,
-                "click".equals(f.event()) ? Optional.ofNullable(f.link()).orElse("https://example.com/") : f.link(),
+                "click".equals(f.event()) && link == null ? "https://example.com/" : link,
                 tags,
                 sent.map(SentEmail::getSubject).orElse(null),
                 sent.map(SentEmail::getSenderEmail).orElse(null),
@@ -117,9 +136,25 @@ public class WebhookService {
             events.record(account, data);
         }
 
-        String token = f.token() != null ? f.token() : properties.getWebhookToken();
-        sender.send(f.url(), token, payload(account, data, request));
+        String token = blankToNull(f.token()) != null ? f.token() : properties.getWebhookToken();
+        Map<String, Object> payload = payload(account, data, request);
+        // Send only after the event row commits, so a receiver that reads the event
+        // report in response to this webhook finds the event.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sender.send(f.url(), token, payload);
+                }
+            });
+        } else {
+            sender.send(f.url(), token, payload);
+        }
         return account != null;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
     }
 
     private Map<String, Object> payload(Account account, EventData d, SendSmtpEmailRequest request) {
@@ -155,7 +190,8 @@ public class WebhookService {
                     .orElse(0L));
             p.put("device_used", "DESKTOP");
             p.put("user_agent", USER_AGENT_OF_READER);
-            p.put("mirror_link", "http://localhost:8080/mirror/" + UUID.randomUUID());
+            // A clearly fake host: the mock serves no mirror pages.
+            p.put("mirror_link", "https://mirror.mock-brevo.invalid/" + UUID.randomUUID());
             if ("click".equals(event)) p.put("link", d.link());
         }
         return p;

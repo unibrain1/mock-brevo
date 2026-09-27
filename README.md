@@ -134,7 +134,7 @@ curl -X POST http://localhost:8080/mock-webhooks/fire -H 'Content-Type: applicat
 | `messageId` | no | A `messageId` from `POST /v3/smtp/email`. The webhook then copies that email's `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-custom` header, and the event is recorded under its account. Without it, the webhook gets a generated `message-id`. |
 | `token` | no | Sent as `Authorization: Bearer <token>`. Default: `MOCK_WEBHOOK_TOKEN`. Never logged. |
 | `tags` | no | Replaces the tags copied from the email (`tag` is the first one) |
-| `apiKey` | no | Account to record the event under when there is no known `messageId` |
+| `apiKey` | no | Account to record the event under when there is no known `messageId`. Like `/v3`, an unknown key provisions a new account. If `messageId` belongs to another account, the response is `400`. |
 | `reason`, `link` | no | Bounce reason (a realistic default per event), clicked URL for `click` |
 
 The response is `202` with `"recorded": true` if the event was stored for the event report and block list.

@@ -83,7 +83,7 @@ Lazy collections (notably `Contact.lists`) are iterated in controllers during re
 
 ### Email events (shared store)
 
-`EmailEvent` rows record every simulated webhook event (manual fire and auto-fired `delivered`), keyed by account. The webhook, the event report and the block list read this one table, so one simulated event looks the same everywhere. `event` holds the webhook name (`hard_bounce`, …). The account comes from the sent email that `messageId` names, else from the fire body's `apiKey`. With neither, the webhook is still sent but nothing is recorded (`"recorded": false`). `POST /mock/reset` clears the table.
+`EmailEvent` rows record every simulated webhook event (manual fire and auto-fired `delivered`), keyed by account. The webhook, the event report and the block list read this one table, so one simulated event looks the same everywhere. `event` holds the webhook name (`hard_bounce`, …). The account comes from the sent email that `messageId` names, else from the fire body's `apiKey`. With neither, the webhook is still sent but nothing is recorded (`"recorded": false`). An `apiKey` with another account's `messageId`, or a value longer than its column, returns 400. The webhook is sent after the event row commits, so a receiver that reads the event report finds it. `POST /mock/reset` clears the table.
 
 Webhooks copy `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-custom` from the sent email's stored payload. The bearer token (`token` in the fire body, else `MOCK_WEBHOOK_TOKEN`) is sent as `Authorization: Bearer …` and is never logged. The outbound `RestClient` uses HTTP/1.1 with a buffered body (so a `Content-Length`, no chunked, no h2c upgrade), as real Brevo does.
 

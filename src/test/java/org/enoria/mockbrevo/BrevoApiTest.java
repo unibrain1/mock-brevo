@@ -247,6 +247,30 @@ class BrevoApiTest {
     }
 
     @Test
+    void fireRejectsAnotherAccountsMessageIdAndOverlongValues() throws Exception {
+        String owner = newKey();
+        String messageId = sendEmail(owner, "to@example.com", "[\"registry\"]");
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"spam\",\"email\":\"to@example.com\","
+                                + "\"messageId\":\"" + messageId + "\",\"apiKey\":\"" + newKey() + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("different account")));
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"" + "x".repeat(41)
+                                + "\",\"email\":\"to@example.com\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("event is longer than 40 characters"));
+    }
+
+    @Test
+    void blankTokenFallsBackToTheDefault() throws Exception {
+        try (Hook hook = Hook.start()) {
+            fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\" \"");
+            assertEquals("Bearer default-token", hook.next().authorization());
+        }
+    }
+
+    @Test
     void webhookTokenIsNotKeptInTheRequestLog() throws Exception {
         try (Hook hook = Hook.start()) {
             fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\"do-not-log-me\"");

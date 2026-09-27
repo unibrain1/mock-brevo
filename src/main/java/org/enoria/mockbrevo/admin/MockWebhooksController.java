@@ -36,13 +36,30 @@ public class MockWebhooksController {
         if (body.email == null || body.email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "email is required"));
         }
+        // Keep inside the email_event column widths, so a long value is a 400 and not a failed write.
+        for (MaxLength m : List.of(
+                new MaxLength("event", body.event, 40),
+                new MaxLength("email", body.email, 320),
+                new MaxLength("messageId", body.messageId, 80),
+                new MaxLength("reason", body.reason, 1000),
+                new MaxLength("link", body.link, 2000))) {
+            if (m.value() != null && m.value().length() > m.max()) {
+                return ResponseEntity.badRequest().body(
+                        Map.of("error", m.field() + " is longer than " + m.max() + " characters"));
+            }
+        }
         // An event with no known messageId still needs an account to be recorded.
         Account account = body.apiKey != null && !body.apiKey.isBlank()
                 ? accountService.resolveOrProvision(body.apiKey)
                 : null;
-        boolean recorded = webhookService.fire(new WebhookService.Fire(
-                body.url, body.token, account, body.event, body.email,
-                body.reason, body.messageId, body.link, body.tags));
+        boolean recorded;
+        try {
+            recorded = webhookService.fire(new WebhookService.Fire(
+                    body.url, body.token, account, body.event, body.email,
+                    body.reason, body.messageId, body.link, body.tags));
+        } catch (WebhookService.AccountMismatch e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", "fired");
@@ -51,6 +68,8 @@ public class MockWebhooksController {
         out.put("recorded", recorded);
         return ResponseEntity.accepted().body(out);
     }
+
+    private record MaxLength(String field, String value, int max) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class FireRequest {

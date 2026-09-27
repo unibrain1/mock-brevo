@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -55,8 +56,9 @@ public class EmailEvent {
     @Column(length = 2000)
     private String link;
 
-    /** JSON array of the send tags, e.g. {@code ["registry"]}. */
-    @Column(length = 2000)
+    /** JSON array of the send tags, e.g. {@code ["registry"]}. A CLOB: send tags are not length-limited. */
+    @Lob
+    @Column(columnDefinition = "CLOB")
     private String tagsJson;
 
     @Column(length = 500)
