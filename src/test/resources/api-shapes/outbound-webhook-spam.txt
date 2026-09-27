@@ -1,5 +1,5 @@
 content-type: application/json
-header authorization: Bearer <token>
+header authorization: absent
 header content-length: present
 header transfer-encoding: absent
 header upgrade: absent
@@ -11,13 +11,10 @@ $.email : string
 $.event : string
 $.id : integer
 $.message-id : string
-$.reason : string
 $.sender_email : string
-$.sending_ip : string
 $.subject : string
 $.tag : string
 $.tags[] : string
-$.template_id : integer
 $.ts : integer
 $.ts_epoch : integer
 $.ts_event : integer

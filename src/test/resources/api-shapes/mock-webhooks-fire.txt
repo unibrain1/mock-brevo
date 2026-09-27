@@ -2,4 +2,5 @@ status: 202
 content-type: application/json
 $.email : string
 $.event : string
+$.recorded : boolean
 $.status : string

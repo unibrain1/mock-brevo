@@ -106,12 +106,47 @@ All settings are environment variables, sensible defaults for dev:
 | `MOCK_STATUS_REVEAL_KEYS` | `true` | Expose raw API keys in `/mock-status` (disable in shared environments) |
 | `MOCK_DEFAULT_WEBHOOK_URL` | — | URL to fire outbound webhooks at |
 | `MOCK_AUTO_FIRE_DELIVERED` | `false` | Auto-fire `delivered` webhook after each `POST /v3/smtp/email` |
+| `MOCK_WEBHOOK_TOKEN` | — | Default bearer token sent as `Authorization: Bearer <token>` on outbound webhooks |
 | `MOCK_SMTP_ENABLED` | `false` | Relay captured emails to an SMTP server |
 | `MOCK_SMTP_HOST` | `localhost` (dev profile) / `mailcatcher` (Docker) | SMTP host |
 | `MOCK_SMTP_PORT` | `1025` | SMTP port (Mailpit default) |
 | `MOCK_SMTP_USERNAME` / `MOCK_SMTP_PASSWORD` | — | Optional auth |
 | `MOCK_SMTP_STARTTLS` | `false` | STARTTLS toggle |
 | `SERVER_PORT` | `8080` | HTTP port |
+
+## Webhook simulation
+
+`POST /mock-webhooks/fire` sends one Brevo-style webhook to `url`:
+
+```bash
+curl -X POST http://localhost:8080/mock-webhooks/fire -H 'Content-Type: application/json' -d '{
+  "url": "http://host.docker.internal:8000/webhooks/brevo",
+  "event": "hard_bounce",
+  "email": "to@example.com",
+  "messageId": "<…@mock-brevo.local>",
+  "token": "my-webhook-token"
+}'
+```
+
+| Field | Required | Effect |
+|---|---|---|
+| `url`, `event`, `email` | yes | Target, Brevo event name (`delivered`, `hard_bounce`, `soft_bounce`, `spam`, `invalid_email`, `opened`, `click`, `unsubscribed`, …) and recipient |
+| `messageId` | no | A `messageId` from `POST /v3/smtp/email`. The webhook then copies that email's `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-custom` header, and the event is recorded under its account. Without it, the webhook gets a generated `message-id`. |
+| `token` | no | Sent as `Authorization: Bearer <token>`. Default: `MOCK_WEBHOOK_TOKEN`. Never logged. |
+| `tags` | no | Replaces the tags copied from the email (`tag` is the first one) |
+| `apiKey` | no | Account to record the event under when there is no known `messageId` |
+| `reason`, `link` | no | Bounce reason (a realistic default per event), clicked URL for `click` |
+
+The response is `202` with `"recorded": true` if the event was stored for the event report and block list.
+
+The payload follows real Brevo deliveries. Every event has `event`, `email`, `id`, `date` (`YYYY-MM-DD HH:MM:SS`, UTC in the mock), `ts`, `ts_event`, `ts_epoch` (ms), `message-id`, `subject`, `tags` and `template_id`. Per event:
+
+- `delivered`, `hard_bounce`, `soft_bounce` and others: add `tag`, `sender_email`, `uuid`, `reason`, `sending_ip` and, if the email set it, `X-Mailin-custom`.
+- `spam`: the same, without `reason`, `sending_ip` and `template_id`.
+- `invalid_email`: only the common fields.
+- `opened`, `unique_opened`, `click`, `unsubscribed`, `proxy_open`: the `delivered` set plus `contact_id`, `device_used`, `user_agent`, `mirror_link`, and `link` for `click`.
+
+Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webhook/2.0 (mock-brevo)`. Delivery is best-effort: a failed POST is logged, not retried.
 
 ## Admin routes (not part of the Brevo API)
 

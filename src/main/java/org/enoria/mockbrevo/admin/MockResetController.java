@@ -5,6 +5,7 @@ import java.util.Map;
 import org.enoria.mockbrevo.domain.AccountRepository;
 import org.enoria.mockbrevo.domain.ContactListRepository;
 import org.enoria.mockbrevo.domain.ContactRepository;
+import org.enoria.mockbrevo.domain.EmailEventRepository;
 import org.enoria.mockbrevo.domain.EmailCampaignRepository;
 import org.enoria.mockbrevo.domain.FolderRepository;
 import org.enoria.mockbrevo.domain.SenderRepository;
@@ -30,6 +31,7 @@ public class MockResetController {
     private final FolderRepository folders;
     private final SenderRepository senders;
     private final RequestLogStore requestLog;
+    private final EmailEventRepository emailEvents;
 
     public MockResetController(
             AccountRepository accounts,
@@ -40,7 +42,8 @@ public class MockResetController {
             SmtpTemplateRepository templates,
             FolderRepository folders,
             SenderRepository senders,
-            RequestLogStore requestLog) {
+            RequestLogStore requestLog,
+            EmailEventRepository emailEvents) {
         this.accounts = accounts;
         this.sentEmails = sentEmails;
         this.contacts = contacts;
@@ -50,6 +53,7 @@ public class MockResetController {
         this.folders = folders;
         this.senders = senders;
         this.requestLog = requestLog;
+        this.emailEvents = emailEvents;
     }
 
     @PostMapping("/reset")
@@ -57,6 +61,7 @@ public class MockResetController {
     public ResponseEntity<Map<String, Object>> reset() {
         Map<String, Object> deleted = new LinkedHashMap<>();
         deleted.put("sentEmails", sentEmails.count());
+        deleted.put("emailEvents", emailEvents.count());
         deleted.put("contacts", contacts.count());
         deleted.put("lists", lists.count());
         deleted.put("campaigns", campaigns.count());
@@ -68,6 +73,7 @@ public class MockResetController {
         // Order matters: child rows before parents.
         // contacts.deleteAll() (not deleteAllInBatch) so the @ManyToMany "contact_in_list"
         // join table is cleaned up by Hibernate before we drop the lists.
+        emailEvents.deleteAllInBatch();
         sentEmails.deleteAllInBatch();
         contacts.deleteAll();
         lists.deleteAllInBatch();

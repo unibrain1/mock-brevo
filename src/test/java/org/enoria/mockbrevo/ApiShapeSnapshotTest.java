@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -132,31 +133,55 @@ class ApiShapeSnapshotTest {
         compareAll();
     }
 
-    /** Outbound webhook JSON as received by a client app. */
+    /**
+     * Outbound webhooks as received by a client app: body shape per event family,
+     * plus the transport headers a strict receiver checks.
+     */
     private void captureWebhook() throws Exception {
-        CompletableFuture<String> received = new CompletableFuture<>();
+        BlockingQueue<String> received = new LinkedBlockingQueue<>();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/hook", exchange -> {
-            received.complete(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)
-                    + "\n" + exchange.getRequestHeaders().getFirst("Content-Type"));
+            var h = exchange.getRequestHeaders();
+            String auth = h.getFirst("Authorization");
+            String ua = h.getFirst("User-Agent");
+            String headers = "content-type: " + mediaType(h.getFirst("Content-Type")) + "\n"
+                    + "header authorization: " + (auth == null ? "absent" : auth.replaceAll("^Bearer .+$", "Bearer <token>")) + "\n"
+                    + "header content-length: " + (h.containsKey("Content-Length") ? "present" : "absent") + "\n"
+                    + "header transfer-encoding: " + (h.containsKey("Transfer-Encoding") ? "present" : "absent") + "\n"
+                    + "header upgrade: " + (h.containsKey("Upgrade") ? "present" : "absent") + "\n"
+                    + "header user-agent: " + (ua != null && ua.startsWith("Brevo-webhook/") ? "Brevo-webhook/*" : ua) + "\n"
+                    + "protocol: " + exchange.getProtocol() + "\n";
+            received.add(headers + shape(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
             exchange.sendResponseHeaders(204, -1);
             exchange.close();
         });
         server.start();
         try {
             String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
+            // A tagged, templated send, so the webhook can copy its details.
+            String sent = send("POST", "/v3/smtp/email",
+                    "{\"sender\":{\"email\":\"s@example.com\"},\"to\":[{\"email\":\"to@example.com\"}],"
+                            + "\"subject\":\"Hook\",\"templateId\":7,\"tags\":[\"car_verification\"],"
+                            + "\"headers\":{\"X-Mailin-custom\":\"ref:42\"}}", key).body();
+            String messageId = (String) ((Map<?, ?>) JSONValue.parse(sent)).get("messageId");
+
             capture("mock-webhooks-fire", "POST", "/mock-webhooks/fire",
                     "{\"url\":\"" + url + "\",\"event\":\"hard_bounce\",\"email\":\"to@example.com\","
-                            + "\"reason\":\"mailbox full\",\"messageId\":\"<m@x>\"}", null);
+                            + "\"reason\":\"mailbox full\",\"messageId\":\"" + messageId + "\",\"token\":\"secret\"}", null);
+            actual.put("outbound-webhook", received.poll(10, TimeUnit.SECONDS));
             capture("mock-webhooks-fire-400", "POST", "/mock-webhooks/fire", "{\"event\":\"delivered\"}", null);
-            String[] parts = received.get(10, TimeUnit.SECONDS).split("\n", 2);
-            actual.put("outbound-webhook", "content-type: " + mediaType(parts[1]) + "\n" + shape(parts[0]));
+
+            for (String event : List.of("spam", "invalid_email", "click")) {
+                send("POST", "/mock-webhooks/fire", "{\"url\":\"" + url + "\",\"event\":\"" + event
+                        + "\",\"email\":\"to@example.com\",\"messageId\":\"" + messageId + "\"}", null);
+                actual.put("outbound-webhook-" + event, received.poll(10, TimeUnit.SECONDS));
+            }
         } finally {
             server.stop(0);
         }
     }
 
-    private String capture(String name, String method, String path, String body, String apiKey)
+    private HttpResponse<String> send(String method, String path, String body, String apiKey)
             throws IOException, InterruptedException {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                 .header("accept", "application/json");
@@ -167,7 +192,12 @@ class ApiShapeSnapshotTest {
         } else {
             req.method(method, HttpRequest.BodyPublishers.noBody());
         }
-        HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+        return http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private String capture(String name, String method, String path, String body, String apiKey)
+            throws IOException, InterruptedException {
+        HttpResponse<String> resp = send(method, path, body, apiKey);
         String contentType = resp.headers().firstValue("content-type").map(ApiShapeSnapshotTest::mediaType).orElse("-");
         actual.put(name, "status: " + resp.statusCode() + "\ncontent-type: " + contentType + "\n" + shape(resp.body()));
         return resp.body();
@@ -214,6 +244,8 @@ class ApiShapeSnapshotTest {
     private static final Pattern OFFSET = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}");
     private static final Pattern LOCAL = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?");
     private static final Pattern DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    /** Brevo webhook {@code date}: local time, space-separated, no zone. */
+    private static final Pattern SPACED = Pattern.compile("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}");
 
     static String shape(String body) {
         if (body == null || body.isBlank()) return "body: <empty>";
@@ -249,6 +281,7 @@ class ApiShapeSnapshotTest {
         if (OFFSET.matcher(s).matches()) return "string<datetime-offset>";
         if (LOCAL.matcher(s).matches()) return "string<datetime-local>";
         if (DATE.matcher(s).matches()) return "string<date>";
+        if (SPACED.matcher(s).matches()) return "string<datetime-spaced>";
         return "string";
     }
 
