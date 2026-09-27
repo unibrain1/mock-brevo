@@ -20,10 +20,12 @@ import org.enoria.mockbrevo.domain.EmailEventRepository;
 import org.enoria.mockbrevo.events.EmailEventService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Transactional email statistics. Reads the shared email-event store. */
 @RestController
@@ -145,14 +147,24 @@ public class SmtpStatisticsController {
         throw invalid("sort must be asc or desc");
     }
 
-    /** Accepts a JSON-style array ({@code ["a","b"]}) or a comma-separated list. */
-    private static Set<String> parseTags(String tags) {
+    /** Accepts a JSON array ({@code ["a","b"]}) or a comma-separated list. */
+    private Set<String> parseTags(String tags) {
         if (tags == null || tags.isBlank()) return Set.of();
-        String inner = tags.trim().replaceAll("^\\[|\\]$", "");
-        return Arrays.stream(inner.split(","))
-                .map(t -> t.trim().replaceAll("^\"|\"$", ""))
+        if (tags.trim().startsWith("[")) {
+            List<String> parsed = eventService.readTags(tags.trim());
+            if (parsed.isEmpty()) throw invalid("tags must be a JSON array of strings");
+            return Set.copyOf(parsed);
+        }
+        return Arrays.stream(tags.split(","))
+                .map(String::trim)
                 .filter(t -> !t.isEmpty())
                 .collect(Collectors.toSet());
+    }
+
+    /** A non-numeric limit, offset, days or templateId gets Brevo's error body, not Spring's. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> typeMismatch(MethodArgumentTypeMismatchException e) {
+        return BrevoErrors.badRequest(e.getName() + " is not valid: " + e.getValue());
     }
 
     /** @return [from, to] as instants; both dates are inclusive whole UTC days. */
@@ -169,8 +181,9 @@ public class SmtpStatisticsController {
         }
         int d = Objects.requireNonNullElse(days, 30);
         if (d < 1 || d > MAX_DAYS) throw invalid("days must be between 1 and " + MAX_DAYS);
-        Instant now = Instant.now();
-        return new Instant[] {now.minusSeconds(d * 86_400L), now};
+        // Brevo counts whole days including today: days=1 is today only (UTC).
+        LocalDate first = LocalDate.now(ZoneOffset.UTC).minusDays(d - 1L);
+        return new Instant[] {first.atStartOfDay(ZoneOffset.UTC).toInstant(), Instant.now()};
     }
 
     private static LocalDate parseDate(String name, String value) {

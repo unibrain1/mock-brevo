@@ -17,10 +17,10 @@ import org.enoria.mockbrevo.events.EmailEventService;
 import org.enoria.mockbrevo.smtp.SmtpForwarder;
 import org.enoria.mockbrevo.webhook.WebhookService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -51,10 +51,19 @@ public class TransactionalEmailController {
         this.emailEvents = emailEvents;
     }
 
+    /** Longest recipient address that fits the email_event column (RFC 5321 allows 254). */
+    static final int MAX_ADDRESS_LENGTH = 320;
+
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public SendSmtpEmailResponse send(@RequestBody SendSmtpEmailRequest request) {
+    public ResponseEntity<Object> send(@RequestBody SendSmtpEmailRequest request) {
         Account account = CurrentAccount.require();
+
+        // Checked before anything is saved, so a rejected send leaves no partial state.
+        for (SendSmtpEmailRequest.EmailAddress rcpt : allRecipients(request)) {
+            if (rcpt.email().length() > MAX_ADDRESS_LENGTH) {
+                return BrevoErrors.badRequest("email address is longer than " + MAX_ADDRESS_LENGTH + " characters");
+            }
+        }
 
         String messageId = "<" + UUID.randomUUID() + "@mock-brevo.local>";
 
@@ -94,7 +103,7 @@ public class TransactionalEmailController {
             }
         }
 
-        return new SendSmtpEmailResponse(messageId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new SendSmtpEmailResponse(messageId));
     }
 
     private static List<SendSmtpEmailRequest.EmailAddress> allRecipients(SendSmtpEmailRequest request) {

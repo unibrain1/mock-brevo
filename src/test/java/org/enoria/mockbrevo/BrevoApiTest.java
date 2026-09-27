@@ -373,6 +373,27 @@ class BrevoApiTest {
     }
 
     @Test
+    void eventReportDaysCountsWholeDaysIncludingToday() throws Exception {
+        String key = newKey();
+        sendEmail(key, "to@example.com", "[\"registry\"]");
+        mvc.perform(get("/v3/smtp/statistics/events").header("api-key", key).param("days", "1"))
+                .andExpect(jsonPath("$.events.length()").value(1));
+    }
+
+    @Test
+    void overlongRecipientIsRejectedBeforeAnythingIsSaved() throws Exception {
+        String key = newKey();
+        String longAddress = "a".repeat(320) + "@example.com";
+        mvc.perform(post("/v3/smtp/email").header("api-key", key).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sender\":{\"email\":\"s@example.com\"},\"to\":[{\"email\":\"" + longAddress
+                                + "\"}],\"subject\":\"Hi\",\"htmlContent\":\"<p>x</p>\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_parameter"));
+        mvc.perform(get("/mock-status/accounts/" + key + "/emails"))
+                .andExpect(jsonPath("$.count").value(0));
+    }
+
+    @Test
     void eventReportRejectsInvalidParameters() throws Exception {
         String key = newKey();
         String url = "/v3/smtp/statistics/events";
@@ -385,7 +406,9 @@ class BrevoApiTest {
                 {"limit", "5001"},
                 {"offset", "-1"},
                 {"sort", "up"},
-                {"event", "bounced"}}) {
+                {"event", "bounced"},
+                {"limit", "abc"},
+                {"tags", "[1,"}}) {
             var req = get(url).header("api-key", key);
             for (int i = 0; i < q.length; i += 2) req.param(q[i], q[i + 1]);
             mvc.perform(req)

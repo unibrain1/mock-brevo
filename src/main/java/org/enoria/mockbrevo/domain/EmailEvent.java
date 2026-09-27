@@ -24,7 +24,7 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "email_event", indexes = {
-        @Index(columnList = "account_id"),
+        @Index(columnList = "account_id, occurredAt"),
         @Index(columnList = "email"),
         @Index(columnList = "messageId")
 })
