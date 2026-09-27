@@ -150,8 +150,11 @@ public class SmtpStatisticsController {
     /** Accepts a JSON array ({@code ["a","b"]}) or a comma-separated list. */
     private Set<String> parseTags(String tags) {
         if (tags == null || tags.isBlank()) return Set.of();
-        if (tags.trim().startsWith("[")) {
-            List<String> parsed = eventService.readTags(tags.trim());
+        String trimmed = tags.trim();
+        if (trimmed.startsWith("[")) {
+            // An empty array means no tag filter, like a blank value.
+            if (trimmed.replaceAll("\\s", "").equals("[]")) return Set.of();
+            List<String> parsed = eventService.readTags(trimmed);
             if (parsed.isEmpty()) throw invalid("tags must be a JSON array of strings");
             return Set.copyOf(parsed);
         }

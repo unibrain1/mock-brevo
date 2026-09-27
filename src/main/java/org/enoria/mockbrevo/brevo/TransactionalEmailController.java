@@ -18,6 +18,9 @@ import org.enoria.mockbrevo.smtp.SmtpForwarder;
 import org.enoria.mockbrevo.webhook.WebhookService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -54,7 +57,12 @@ public class TransactionalEmailController {
     /** Longest recipient address that fits the email_event column (RFC 5321 allows 254). */
     static final int MAX_ADDRESS_LENGTH = 320;
 
+    /**
+     * One transaction: the email and its events commit together. The SMTP forward
+     * (async, reads the row by id) and the webhooks run after the commit.
+     */
     @PostMapping
+    @Transactional
     public ResponseEntity<Object> send(@RequestBody SendSmtpEmailRequest request) {
         Account account = CurrentAccount.require();
 
@@ -84,7 +92,13 @@ public class TransactionalEmailController {
         email.setSentAt(Instant.now());
         sentEmails.save(email);
 
-        smtpForwarder.forward(request, messageId, email.getId());
+        Long emailId = email.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                smtpForwarder.forward(request, messageId, emailId);
+            }
+        });
 
         // Brevo reports one "requests" event per recipient (to, cc and bcc).
         for (SendSmtpEmailRequest.EmailAddress rcpt : allRecipients(request)) {

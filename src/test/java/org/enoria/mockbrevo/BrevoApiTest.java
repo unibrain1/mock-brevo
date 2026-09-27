@@ -362,6 +362,9 @@ class BrevoApiTest {
                 .andExpect(jsonPath("$.events.length()").value(2));
         mvc.perform(get(url).header("api-key", key).param("tags", "[\"car_verification\"]"))
                 .andExpect(jsonPath("$.events.length()").value(2));
+        mvc.perform(get(url).header("api-key", key).param("tags", "[]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(4));
         mvc.perform(get(url).header("api-key", key).param("sort", "asc").param("limit", "1"))
                 .andExpect(jsonPath("$.events.length()").value(1))
                 .andExpect(jsonPath("$.events[0].event").value("requests"))
