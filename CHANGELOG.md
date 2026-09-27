@@ -8,6 +8,10 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-27
+
+Fork release, based on upstream 1.0.0. First release with the fork's own SemVer.
+
 - Admin UI: the header shows the build version (for example `v1.1.0`). Hover it to see the upstream base and the build time. New endpoint `GET /mock-status/version`.
 - Admin UI: static files are sent with `Cache-Control: no-cache` and no `Last-Modified`. A browser no longer mixes an old cached `app.js` with a new `index.html` after an image upgrade, which made the FR/EN toggle do nothing. A browser that cached the files from an earlier version can still use them once, so do one hard reload (Ctrl/Cmd+Shift+R) after this upgrade.
 - Versioning: the fork now uses its own SemVer, starting with this release. The upstream base is recorded in `pom.xml` `<upstream.version>` and in the image label `io.github.unibrain1.upstream-version`.
