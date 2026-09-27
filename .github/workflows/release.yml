@@ -40,7 +40,9 @@ jobs:
       - name: Read upstream base version
         id: upstream
         run: |
-          v=$(sed -n 's:.*<upstream.version>\(.*\)</upstream.version>.*:\1:p' pom.xml)
+          # pom.xml also has <upstream.version>${upstream.version}</upstream.version>
+          # in the build-info config. Skip values that start with "$" and keep the first.
+          v=$(sed -n 's:.*<upstream.version>\([^$<][^<]*\)</upstream.version>.*:\1:p' pom.xml | head -n1)
           if [ -z "$v" ]; then
             echo "::error::<upstream.version> not found in pom.xml"
             exit 1
