@@ -15,11 +15,13 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,17 +39,33 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class AutoFireTest {
 
-    private static final BlockingQueue<String> RECEIVED = new LinkedBlockingQueue<>();
+    /** What the receiver saw on arrival: the Authorization header and the committed event count. */
+    private record Arrival(String authorization, int committedEvents) {}
+
+    private static final BlockingQueue<Arrival> RECEIVED = new LinkedBlockingQueue<>();
     private static final HttpServer HOOK = startHook();
+    /** Set before each test; the receiver thread reads it to see what has committed. */
+    private static volatile JdbcTemplate jdbc;
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void shareJdbc() {
+        jdbc = jdbcTemplate;
+    }
 
     private static HttpServer startHook() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/hook", exchange -> {
-                RECEIVED.add(exchange.getRequestHeaders().getFirst("Authorization"));
+                // Counted on a separate connection, so only committed rows are visible.
+                Integer events = jdbc.queryForObject("select count(*) from email_event", Integer.class);
+                RECEIVED.add(new Arrival(exchange.getRequestHeaders().getFirst("Authorization"),
+                        events == null ? 0 : events));
                 exchange.sendResponseHeaders(204, -1);
                 exchange.close();
             });
@@ -75,12 +93,16 @@ class AutoFireTest {
         // The null address is skipped, not a failed send.
         mvc.perform(post("/v3/smtp/email").header("api-key", key).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sender\":{\"email\":\"s@example.com\"},\"to\":[{\"email\":\"to@example.com\"},{\"name\":\"no address\"}],"
+                                + "\"cc\":[{\"name\":\"no address either\"}],"
                                 + "\"subject\":\"Hi\",\"htmlContent\":\"<p>x</p>\",\"tags\":[\"registry\"]}"))
                 .andExpect(status().isCreated());
 
-        String auth = RECEIVED.poll(10, TimeUnit.SECONDS);
-        assertNotNull(auth, "no delivered webhook received");
-        assertEquals("Bearer auto-token", auth);
+        Arrival arrival = RECEIVED.poll(10, TimeUnit.SECONDS);
+        assertNotNull(arrival, "no delivered webhook received");
+        assertEquals("Bearer auto-token", arrival.authorization());
+        // Both rows are visible to a receiver when the webhook arrives. (The strict
+        // after-commit order is checked in WebhookAfterCommitTest.)
+        assertEquals(2, arrival.committedEvents());
 
         mvc.perform(get("/v3/smtp/statistics/events").header("api-key", key).param("sort", "asc"))
                 .andExpect(jsonPath("$.events.length()").value(2))
