@@ -25,7 +25,7 @@ Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transac
   - direct links to the matching Brevo documentation page for each logged endpoint
 - **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL. See [Webhook simulation](#webhook-simulation).
 - **Transactional event report** (`GET /v3/smtp/statistics/events`) — every send (`requests`) and every simulated webhook event, with Brevo's filters (`startDate`/`endDate` or `days`, `email`, `event`, `tags`, `messageId`, `templateId`), paging and `sort`.
-- **Transactional block list** (`GET /v3/smtp/blockedContacts`, `DELETE /v3/smtp/blockedContacts/{email}`) — a fired `hard_bounce`, `spam` or `unsubscribed` blocks the recipient. Tests can also seed entries through an admin route. The admin UI shows a `blocked` counter with a drill-down per account.
+- **Transactional block list** (`GET /v3/smtp/blockedContacts`, `DELETE /v3/smtp/blockedContacts/{email}`) — a fired `hard_bounce`, `spam` or `unsubscribed` blocks the recipient. Tests can also seed entries through an admin route. The admin UI shows a `blocked` counter with a drill-down per account. The reason messages for `hardBounce`, `contactFlaggedAsSpam` and `unsubscribedViaEmail` come from a real Brevo export. The others are best guesses.
 
 See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 
@@ -139,7 +139,7 @@ curl -X POST http://localhost:8080/mock-webhooks/fire -H 'Content-Type: applicat
 | `apiKey` | no | Account to record the event under when there is no known `messageId`. Like `/v3`, an unknown key provisions a new account. If `messageId` belongs to another account, the response is `400`. |
 | `reason`, `link` | no | Bounce reason (a realistic default per event), clicked URL for `click` |
 
-The response is `202` with `"recorded": true` if the event was stored for the event report and block list.
+The response is `202` with `"recorded": true` if the event was stored for the event report and block list. The request log masks the fire body's `token` and `apiKey`.
 
 The payload follows real Brevo deliveries. Every event has `event`, `email`, `id`, `date` (`YYYY-MM-DD HH:MM:SS`, UTC in the mock), `ts`, `ts_event`, `ts_epoch` (ms), `message-id`, `subject`, `tags` and `template_id`. Per event:
 

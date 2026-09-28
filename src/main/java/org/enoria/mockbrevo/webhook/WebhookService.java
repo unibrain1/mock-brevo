@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -200,6 +201,9 @@ public class WebhookService {
             p.put("mirror_link", "https://mirror.mock-brevo.invalid/" + UUID.randomUUID());
             if ("click".equals(event)) p.put("link", d.link());
         }
+        // With no known sent email, subject, sender_email and template_id are unknown. Real
+        // Brevo always has them, so leave the keys out instead of sending JSON null.
+        p.values().removeIf(Objects::isNull);
         return p;
     }
 

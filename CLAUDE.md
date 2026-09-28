@@ -124,7 +124,7 @@ Webhooks copy `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-cus
 
 ### Request logging
 
-`RequestLoggingFilter` (order = `HIGHEST_PRECEDENCE + 10`) matches `/v3/**` and `/mock-webhooks/**` via `AntPathMatcher` and appends to `RequestLogStore` (synchronized `ArrayDeque`, capped at 500). The filter wraps `chain.doFilter` in a try/finally so errors and 4xx/5xx responses are still captured. The api-key header is masked (first 6 + last 4 chars) before storage — never log raw keys regardless of `MOCK_STATUS_REVEAL_KEYS`. A `"token"` field in a `/mock-webhooks/**` request body is replaced with `"***"` before storage. Memory only; ring buffer resets on restart.
+`RequestLoggingFilter` (order = `HIGHEST_PRECEDENCE + 10`) matches `/v3/**` and `/mock-webhooks/**` via `AntPathMatcher` and appends to `RequestLogStore` (synchronized `ArrayDeque`, capped at 500). The filter wraps `chain.doFilter` in a try/finally so errors and 4xx/5xx responses are still captured. The api-key header is masked (first 6 + last 4 chars) before storage — never log raw keys regardless of `MOCK_STATUS_REVEAL_KEYS`. In a `/mock-webhooks/**` request body, a `"token"` field is replaced with `"***"` and an `"apiKey"` field is masked like the header, before storage. Mask any new secret field in a logged body the same way. Memory only; ring buffer resets on restart.
 
 ### Config properties
 

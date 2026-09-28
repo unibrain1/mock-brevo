@@ -305,6 +305,22 @@ class BrevoApiTest {
     }
 
     @Test
+    void fireBodyApiKeyIsMaskedInTheRequestLog() throws Exception {
+        String key = "raw-key-" + UUID.randomUUID();
+        try (Hook hook = Hook.start()) {
+            fire(hook.url(), "spam", "to@example.com", null, ",\"apiKey\":\"" + key + "\"");
+            // No known sent email: the unknown fields are left out, not sent as null.
+            JsonNode body = json.readTree(hook.next().body());
+            assertTrue(body.get("subject") == null && body.get("sender_email") == null);
+        }
+        String list = mvc.perform(get("/mock-status/requests?limit=1")).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(list).get("requests").get(0).get("id").asLong();
+        mvc.perform(get("/mock-status/requests/" + id))
+                .andExpect(jsonPath("$.requestBody", containsString("\"apiKey\":\"" + key.substring(0, 6) + "…")))
+                .andExpect(jsonPath("$.requestBody", not(containsString(key))));
+    }
+
+    @Test
     void webhookTokenIsNotKeptInTheRequestLog() throws Exception {
         try (Hook hook = Hook.start()) {
             fire(hook.url(), "delivered", "to@example.com", null, ",\"token\":\"do-not-log-me\"");
