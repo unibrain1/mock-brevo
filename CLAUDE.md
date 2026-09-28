@@ -19,10 +19,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
 
-If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs. This command is for Docker Desktop (macOS). On a Linux host, add `--user "$(id -u):$(id -g)" -e HOME=/tmp` and mount the volume at `/tmp/.m2`, or `target/` becomes owned by root:
+If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs. On Docker Desktop (macOS):
 
 ```bash
 docker run --rm -v "$PWD":/w -v mock-brevo-m2:/root/.m2 -w /w eclipse-temurin:25-jdk ./mvnw -q -Plint verify
+```
+
+On a Linux host, run as your own user and bind-mount your Maven cache, or `target/` becomes owned by root (a new named volume would be owned by root too):
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$HOME/.m2":/tmp/.m2 \
+  -v "$PWD":/w -w /w eclipse-temurin:25-jdk ./mvnw -q -Plint verify
 ```
 
 ```bash
