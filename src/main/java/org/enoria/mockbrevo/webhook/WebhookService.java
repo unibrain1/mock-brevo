@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -203,7 +202,9 @@ public class WebhookService {
         }
         // With no known sent email, subject, sender_email and template_id are unknown. Real
         // Brevo always has them, so leave the keys out instead of sending JSON null.
-        p.values().removeIf(Objects::isNull);
+        for (String key : List.of("subject", "sender_email", "template_id")) {
+            if (p.get(key) == null) p.remove(key);
+        }
         return p;
     }
 

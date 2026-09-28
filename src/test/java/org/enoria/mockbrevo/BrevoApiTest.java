@@ -309,15 +309,41 @@ class BrevoApiTest {
         String key = "raw-key-" + UUID.randomUUID();
         try (Hook hook = Hook.start()) {
             fire(hook.url(), "spam", "to@example.com", null, ",\"apiKey\":\"" + key + "\"");
-            // No known sent email: the unknown fields are left out, not sent as null.
-            JsonNode body = json.readTree(hook.next().body());
-            assertTrue(body.get("subject") == null && body.get("sender_email") == null);
+            hook.next();
         }
         String list = mvc.perform(get("/mock-status/requests?limit=1")).andReturn().getResponse().getContentAsString();
         long id = json.readTree(list).get("requests").get(0).get("id").asLong();
         mvc.perform(get("/mock-status/requests/" + id))
                 .andExpect(jsonPath("$.requestBody", containsString("\"apiKey\":\"" + key.substring(0, 6) + "…")))
                 .andExpect(jsonPath("$.requestBody", not(containsString(key))));
+    }
+
+    @Test
+    void fireBodyApiKeyCutByTheLogLimitIsFullyMasked() throws Exception {
+        // The log keeps 16384 bytes. With this pad the apiKey value starts at byte 16354,
+        // so the cut falls 30 bytes into it.
+        String pad = "x".repeat(16261);
+        String key = "CUTKEY".repeat(20);
+        mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"url\":\"http://127.0.0.1:1/\",\"event\":\"delivered\",\"email\":\"to@example.com\","
+                        + "\"pad\":\"" + pad + "\",\"apiKey\":\"" + key + "\"}"));
+        String list = mvc.perform(get("/mock-status/requests?limit=1")).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(list).get("requests").get(0).get("id").asLong();
+        mvc.perform(get("/mock-status/requests/" + id))
+                .andExpect(jsonPath("$.requestTruncated").value(true))
+                .andExpect(jsonPath("$.requestBody", containsString("\"apiKey\":\"***\"")))
+                .andExpect(jsonPath("$.requestBody", not(containsString("CUTKEY"))));
+    }
+
+    @Test
+    void webhookWithNoKnownEmailLeavesOutTheUnknownFields() throws Exception {
+        try (Hook hook = Hook.start()) {
+            fire(hook.url(), "delivered", "to@example.com", null, "");
+            JsonNode body = json.readTree(hook.next().body());
+            assertTrue(body.get("subject") == null && body.get("sender_email") == null
+                    && body.get("template_id") == null, body.toString());
+            assertTrue(body.get("message-id") != null && body.get("reason") != null, body.toString());
+        }
     }
 
     @Test

@@ -141,7 +141,7 @@ curl -X POST http://localhost:8080/mock-webhooks/fire -H 'Content-Type: applicat
 
 The response is `202` with `"recorded": true` if the event was stored for the event report and block list. The request log masks the fire body's `token` and `apiKey`.
 
-The payload follows real Brevo deliveries. Every event has `event`, `email`, `id`, `date` (`YYYY-MM-DD HH:MM:SS`, UTC in the mock), `ts`, `ts_event`, `ts_epoch` (ms), `message-id`, `subject`, `tags` and `template_id`. Per event:
+The payload follows real Brevo deliveries. Every event has `event`, `email`, `id`, `date` (`YYYY-MM-DD HH:MM:SS`, UTC in the mock), `ts`, `ts_event`, `ts_epoch` (ms), `message-id`, `subject`, `tags` and `template_id`. When there is no known sent email (no `messageId`, or an unknown one), `subject`, `sender_email` and `template_id` are left out. Per event:
 
 - `delivered`, `hard_bounce`, `soft_bounce` and others: add `tag`, `sender_email`, `uuid`, `reason`, `sending_ip` and, if the email set it, `X-Mailin-custom`.
 - `spam`: the same, without `reason`, `sending_ip` and `template_id`.

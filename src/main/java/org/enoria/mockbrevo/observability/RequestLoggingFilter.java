@@ -45,7 +45,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
      * never stored raw. The closing quote is optional for the same reason as TOKEN_FIELD.
      */
     private static final Pattern API_KEY_FIELD =
-            Pattern.compile("(\"apiKey\"\\s*:\\s*)\"((?:[^\"\\\\]|\\\\.)*)\"?");
+            Pattern.compile("(\"apiKey\"\\s*:\\s*)\"((?:[^\"\\\\]|\\\\.)*)(\"?)");
 
     private final AntPathMatcher matcher = new AntPathMatcher();
     private final RequestLogStore store;
@@ -84,8 +84,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             Capture reqCap = capture(reqBytes);
             if (reqCap.text != null && path.startsWith("/mock-webhooks/")) {
                 String masked = TOKEN_FIELD.matcher(reqCap.text).replaceAll("$1\"***\"");
+                // A key cut by the size limit has no closing quote: its last 4 characters are
+                // not the key's own, so show "***" instead of the header-style mask.
                 masked = API_KEY_FIELD.matcher(masked).replaceAll(m -> Matcher.quoteReplacement(
-                        m.group(1) + "\"" + Objects.requireNonNullElse(maskKey(m.group(2)), "***") + "\""));
+                        m.group(1) + "\"" + (m.group(3).isEmpty() ? "***"
+                                : Objects.requireNonNullElse(maskKey(m.group(2)), "***")) + "\""));
                 reqCap = new Capture(masked, reqCap.truncated);
             }
             Capture respCap = capture(respBytes);
