@@ -14,7 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The webhook goes out only after the event row commits, and not at all on rollback.
+ * The webhook goes out only after the surrounding transaction commits, and not at all on rollback.
  * WebhookSender is @Async, so an end-to-end test can't see this order reliably.
  */
 @SpringBootTest(properties = {

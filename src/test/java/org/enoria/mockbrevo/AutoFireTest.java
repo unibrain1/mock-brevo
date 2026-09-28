@@ -10,10 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +45,7 @@ class AutoFireTest {
     /** What the receiver saw on arrival: the Authorization header and the committed event count. */
     private record Arrival(String authorization, int committedEvents) {}
 
+    private static final Pattern MESSAGE_ID = Pattern.compile("\"message-id\"\\s*:\\s*\"([^\"]+)\"");
     private static final BlockingQueue<Arrival> RECEIVED = new LinkedBlockingQueue<>();
     private static final HttpServer HOOK = startHook();
     /** Set before each test; the receiver thread reads it to see what has committed. */
@@ -63,7 +67,12 @@ class AutoFireTest {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/hook", exchange -> {
                 // Counted on a separate connection, so only committed rows are visible.
-                Integer events = jdbc.queryForObject("select count(*) from email_event", Integer.class);
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                Matcher id = MESSAGE_ID.matcher(body);
+                Integer events = id.find()
+                        ? jdbc.queryForObject("select count(*) from email_event where message_id = ?",
+                                Integer.class, id.group(1))
+                        : Integer.valueOf(0);
                 RECEIVED.add(new Arrival(exchange.getRequestHeaders().getFirst("Authorization"),
                         events == null ? 0 : events));
                 exchange.sendResponseHeaders(204, -1);
