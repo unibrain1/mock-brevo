@@ -8,6 +8,10 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-28
+
+Fork release, based on upstream 1.0.0. ElanRegistry compatibility: event report, block list and webhooks that match real Brevo.
+
 - Admin UI: every Brevo doc link in the request log uses Brevo's current kebab-case reference slugs. 23 of them returned 404 (#29). `POST /v3/smtp/templates/{id}/sendTest` replaces the old `sendTemplate` route. New `scripts/check-doc-links.sh` checks every slug.
 - New endpoints `GET /v3/smtp/blockedContacts` and `DELETE /v3/smtp/blockedContacts/{email}`, the transactional block list (#18). A fired `hard_bounce`, `spam` or `unsubscribed` blocks the recipient, with Brevo's reason codes and messages. Supports `startDate`/`endDate`, `limit` (max 100), `offset`, `senders` and `sort`. Admin routes `GET|POST /mock-status/accounts/{apiKey}/blocked` and `DELETE …/blocked/{email}` read and seed the list. The admin UI shows a `blocked` counter with a drill-down. Checked with the Brevo PHP SDK v1.0.2 `getTransacBlockedContacts` and `smtpBlockedContactsEmailDelete` calls.
 - New endpoint `GET /v3/smtp/statistics/events`, the transactional email event report (#17). It lists one `requests` event per recipient of each send and every simulated webhook event, with Brevo's report event names, filters, paging, `sort` and `400 {code, message}` errors. Checked with the Brevo PHP SDK v1.0.2 `getEmailEventReport` call. The admin UI's request log now links the event report to the Brevo doc, and `GET /v3/smtp/emails` now links to the correct doc page. `POST /v3/smtp/email` now returns `400 {code, message}` for a recipient address longer than 320 characters.
