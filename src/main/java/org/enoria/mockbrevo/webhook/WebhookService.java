@@ -200,6 +200,11 @@ public class WebhookService {
             p.put("mirror_link", "https://mirror.mock-brevo.invalid/" + UUID.randomUUID());
             if ("click".equals(event)) p.put("link", d.link());
         }
+        // With no known sent email, subject, sender_email and template_id are unknown. Real
+        // Brevo always has them, so leave the keys out instead of sending JSON null.
+        for (String key : List.of("subject", "sender_email", "template_id")) {
+            if (p.get(key) == null) p.remove(key);
+        }
         return p;
     }
 

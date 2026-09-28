@@ -10,8 +10,10 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -37,6 +39,13 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
      */
     private static final Pattern TOKEN_FIELD =
             Pattern.compile("(\"token\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"?");
+
+    /**
+     * The api key in a /mock-webhooks/fire body ("apiKey"). Masked like the api-key header,
+     * never stored raw. The closing quote is optional for the same reason as TOKEN_FIELD.
+     */
+    private static final Pattern API_KEY_FIELD =
+            Pattern.compile("(\"apiKey\"\\s*:\\s*)\"((?:[^\"\\\\]|\\\\.)*)(\"?)");
 
     private final AntPathMatcher matcher = new AntPathMatcher();
     private final RequestLogStore store;
@@ -74,7 +83,13 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
             Capture reqCap = capture(reqBytes);
             if (reqCap.text != null && path.startsWith("/mock-webhooks/")) {
-                reqCap = new Capture(TOKEN_FIELD.matcher(reqCap.text).replaceAll("$1\"***\""), reqCap.truncated);
+                String masked = TOKEN_FIELD.matcher(reqCap.text).replaceAll("$1\"***\"");
+                // A key cut by the size limit has no closing quote: its last 4 characters are
+                // not the key's own, so show "***" instead of the header-style mask.
+                masked = API_KEY_FIELD.matcher(masked).replaceAll(m -> Matcher.quoteReplacement(
+                        m.group(1) + "\"" + (m.group(3).isEmpty() ? "***"
+                                : Objects.requireNonNullElse(maskKey(m.group(2)), "***")) + "\""));
+                reqCap = new Capture(masked, reqCap.truncated);
             }
             Capture respCap = capture(respBytes);
 
