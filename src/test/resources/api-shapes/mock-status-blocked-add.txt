@@ -1,0 +1,7 @@
+status: 201
+content-type: application/json
+$.blockedAt : string<datetime-offset>
+$.email : string
+$.reason.code : string
+$.reason.message : string
+$.senderEmail : string

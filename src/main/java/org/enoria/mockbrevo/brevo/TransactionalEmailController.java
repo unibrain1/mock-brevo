@@ -2,8 +2,10 @@ package org.enoria.mockbrevo.brevo;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.enoria.mockbrevo.auth.CurrentAccount;
 import org.enoria.mockbrevo.brevo.dto.SendSmtpEmailRequest;
 import org.enoria.mockbrevo.brevo.dto.SendSmtpEmailResponse;
@@ -11,13 +13,17 @@ import org.enoria.mockbrevo.config.MockBrevoProperties;
 import org.enoria.mockbrevo.domain.Account;
 import org.enoria.mockbrevo.domain.SentEmail;
 import org.enoria.mockbrevo.domain.SentEmailRepository;
+import org.enoria.mockbrevo.events.EmailEventService;
 import org.enoria.mockbrevo.smtp.SmtpForwarder;
 import org.enoria.mockbrevo.webhook.WebhookService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -31,24 +37,41 @@ public class TransactionalEmailController {
     private final MockBrevoProperties properties;
     private final WebhookService webhookService;
     private final SmtpForwarder smtpForwarder;
+    private final EmailEventService emailEvents;
 
     public TransactionalEmailController(
             SentEmailRepository sentEmails,
             ObjectMapper objectMapper,
             MockBrevoProperties properties,
             WebhookService webhookService,
-            SmtpForwarder smtpForwarder) {
+            SmtpForwarder smtpForwarder,
+            EmailEventService emailEvents) {
         this.sentEmails = sentEmails;
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.webhookService = webhookService;
         this.smtpForwarder = smtpForwarder;
+        this.emailEvents = emailEvents;
     }
 
+    /** Longest recipient address that fits the email_event column (RFC 5321 allows 254). */
+    static final int MAX_ADDRESS_LENGTH = 320;
+
+    /**
+     * One transaction: the email and its events commit together. The SMTP forward
+     * (async, reads the row by id) and the webhooks run after the commit.
+     */
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public SendSmtpEmailResponse send(@RequestBody SendSmtpEmailRequest request) {
+    @Transactional
+    public ResponseEntity<Object> send(@RequestBody SendSmtpEmailRequest request) {
         Account account = CurrentAccount.require();
+
+        // Checked before anything is saved, so a rejected send leaves no partial state.
+        for (SendSmtpEmailRequest.EmailAddress rcpt : allRecipients(request)) {
+            if (rcpt.email().length() > MAX_ADDRESS_LENGTH) {
+                return BrevoErrors.badRequest("email address is longer than " + MAX_ADDRESS_LENGTH + " characters");
+            }
+        }
 
         String messageId = "<" + UUID.randomUUID() + "@mock-brevo.local>";
 
@@ -69,22 +92,41 @@ public class TransactionalEmailController {
         email.setSentAt(Instant.now());
         sentEmails.save(email);
 
-        smtpForwarder.forward(request, messageId, email.getId());
+        Long emailId = email.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                smtpForwarder.forward(request, messageId, emailId);
+            }
+        });
+
+        // Brevo reports one "requests" event per recipient (to, cc and bcc).
+        for (SendSmtpEmailRequest.EmailAddress rcpt : allRecipients(request)) {
+            emailEvents.record(account, new EmailEventService.EventData(
+                    messageId, rcpt.email(), "request", null, null, request.tags(),
+                    email.getSubject(), email.getSenderEmail(), email.getTemplateId(), email.getSentAt()));
+        }
 
         if (properties.isAutoFireDelivered()
                 && !properties.getDefaultWebhookUrl().isBlank()
                 && request.to() != null) {
             for (SendSmtpEmailRequest.EmailAddress to : request.to()) {
-                webhookService.fire(
-                        properties.getDefaultWebhookUrl(),
-                        "delivered",
-                        to.email(),
-                        null,
-                        messageId);
+                if (to == null || to.email() == null || to.email().isBlank()) continue;
+                webhookService.fire(new WebhookService.Fire(
+                        properties.getDefaultWebhookUrl(), null, account,
+                        "delivered", to.email(), null, messageId, null, null));
             }
         }
 
-        return new SendSmtpEmailResponse(messageId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new SendSmtpEmailResponse(messageId));
+    }
+
+    private static List<SendSmtpEmailRequest.EmailAddress> allRecipients(SendSmtpEmailRequest request) {
+        return Stream.of(request.to(), request.cc(), request.bcc())
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(a -> a.email() != null && !a.email().isBlank())
+                .toList();
     }
 
     private String formatRecipients(List<SendSmtpEmailRequest.EmailAddress> to) {

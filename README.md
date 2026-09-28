@@ -23,7 +23,9 @@ Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transac
   - French/English toggle (see [Languages](#languages))
   - inline form to create faker campaigns per account
   - direct links to the matching Brevo documentation page for each logged endpoint
-- **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL.
+- **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL. See [Webhook simulation](#webhook-simulation).
+- **Transactional event report** (`GET /v3/smtp/statistics/events`) — every send (`requests`) and every simulated webhook event, with Brevo's filters (`startDate`/`endDate` or `days`, `email`, `event`, `tags`, `messageId`, `templateId`), paging and `sort`.
+- **Transactional block list** (`GET /v3/smtp/blockedContacts`, `DELETE /v3/smtp/blockedContacts/{email}`) — a fired `hard_bounce`, `spam` or `unsubscribed` blocks the recipient. Tests can also seed entries through an admin route. The admin UI shows a `blocked` counter with a drill-down per account. The reason messages for `hardBounce`, `contactFlaggedAsSpam` and `unsubscribedViaEmail` come from a real Brevo export. The others are best guesses.
 
 See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 
@@ -35,7 +37,7 @@ See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 docker run --rm -p 8080:8080 ghcr.io/unibrain1/mock-brevo:latest
 ```
 
-Then point your Brevo client at `http://localhost:8080` instead of `api.brevo.com`. Any `api-key` value works — the first use provisions the account on the fly.
+Then point your Brevo client at mock-brevo instead of `api.brevo.com`. An SDK client uses `http://localhost:8080/v3` as its host. A raw HTTP client replaces `https://api.brevo.com` with `http://localhost:8080`. Any `api-key` value works — the first use provisions the account on the fly.
 
 ### Docker Compose
 
@@ -85,18 +87,16 @@ services:
       - "host.docker.internal:host-gateway"
 ```
 
-Then point the backend at `http://host.docker.internal:8080`. Note that this hostname only works **from inside Docker** — the browser on the host still uses `http://localhost:8080`. If the client also exposes deep-links to mock-brevo's UI (e.g. campaign edit pages), you need two distinct settings: one for backend traffic, one for the rendered URL.
+Then point the backend at `http://host.docker.internal:8080/v3`. This hostname works only **from inside Docker**. The browser on the host still uses `http://localhost:8080`.
 
-Example for an Enoria-style setup with split API/app URLs:
+If you run mock-brevo as a service in the same Docker Compose project (the more common setup), the backend uses the service name and internal port instead: `http://mock-brevo:8080/v3`. Publish a port (or route it through a reverse proxy) for browser access.
 
-```env
-# .env — consumed by the PHP backend running in Docker
-BREVO_API_URL=http://host.docker.internal:8080/v3
-# Rendered as a link in the UI, opened by the browser on the host
-BREVO_APP_URL=http://localhost:8080
-```
+So an app that runs in Docker usually needs two base URLs:
 
-If you instead run mock-brevo as a service inside the same Docker Compose project (the more common setup), use the service name and internal port — e.g. `BREVO_API_URL=http://mock-brevo:8080/v3` — and expose it through Traefik or a port mapping for browser access.
+- **API base URL** for backend calls: `http://host.docker.internal:8080/v3` or `http://mock-brevo:8080/v3`. This is the SDK host form. If your client adds `/v3` to its paths, drop `/v3` here.
+- **Web UI base URL** for links that a browser opens: `http://localhost:8080` (or the published port).
+
+If your app links to Brevo's web UI, point that link base at mock-brevo's UI. mock-brevo serves Brevo's deep-link paths `/marketing-campaign/edit/{id}` and `/contact/list/id/{id}`, and shows the matching campaign or list.
 
 ## Configuration
 
@@ -108,12 +108,47 @@ All settings are environment variables, sensible defaults for dev:
 | `MOCK_STATUS_REVEAL_KEYS` | `true` | Expose raw API keys in `/mock-status` (disable in shared environments) |
 | `MOCK_DEFAULT_WEBHOOK_URL` | — | URL to fire outbound webhooks at |
 | `MOCK_AUTO_FIRE_DELIVERED` | `false` | Auto-fire `delivered` webhook after each `POST /v3/smtp/email` |
+| `MOCK_WEBHOOK_TOKEN` | — | Default bearer token sent as `Authorization: Bearer <token>` on outbound webhooks |
 | `MOCK_SMTP_ENABLED` | `false` | Relay captured emails to an SMTP server |
 | `MOCK_SMTP_HOST` | `localhost` (dev profile) / `mailcatcher` (Docker) | SMTP host |
 | `MOCK_SMTP_PORT` | `1025` | SMTP port (Mailpit default) |
 | `MOCK_SMTP_USERNAME` / `MOCK_SMTP_PASSWORD` | — | Optional auth |
 | `MOCK_SMTP_STARTTLS` | `false` | STARTTLS toggle |
 | `SERVER_PORT` | `8080` | HTTP port |
+
+## Webhook simulation
+
+`POST /mock-webhooks/fire` sends one Brevo-style webhook to `url`:
+
+```bash
+curl -X POST http://localhost:8080/mock-webhooks/fire -H 'Content-Type: application/json' -d '{
+  "url": "http://host.docker.internal:8000/webhooks/brevo",
+  "event": "hard_bounce",
+  "email": "to@example.com",
+  "messageId": "<…@mock-brevo.local>",
+  "token": "my-webhook-token"
+}'
+```
+
+| Field | Required | Effect |
+|---|---|---|
+| `url`, `event`, `email` | yes | Target, Brevo event name (`delivered`, `hard_bounce`, `soft_bounce`, `spam`, `invalid_email`, `opened`, `click`, `unsubscribed`, …) and recipient |
+| `messageId` | no | A `messageId` from `POST /v3/smtp/email`. The webhook then copies that email's `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-custom` header, and the event is recorded under its account. Without it, the webhook gets a generated `message-id`. |
+| `token` | no | Sent as `Authorization: Bearer <token>`. Default: `MOCK_WEBHOOK_TOKEN`. Never logged. |
+| `tags` | no | Replaces the tags copied from the email (`tag` is the first one) |
+| `apiKey` | no | Account to record the event under when there is no known `messageId`. Like `/v3`, an unknown key provisions a new account. If `messageId` belongs to another account, the response is `400`. |
+| `reason`, `link` | no | Bounce reason (a realistic default per event), clicked URL for `click` |
+
+The response is `202` with `"recorded": true` if the event was stored for the event report and block list. The request log masks the fire body's `token` and `apiKey`.
+
+The payload follows real Brevo deliveries. Every event has `event`, `email`, `id`, `date` (`YYYY-MM-DD HH:MM:SS`, UTC in the mock), `ts`, `ts_event`, `ts_epoch` (ms), `message-id`, `subject`, `tags` and `template_id`. When there is no known sent email (no `messageId`, or an unknown one), `subject`, `sender_email` and `template_id` are left out. Per event:
+
+- `delivered`, `hard_bounce`, `soft_bounce` and others: add `tag`, `sender_email`, `uuid`, `reason`, `sending_ip` and, if the email set it, `X-Mailin-custom`.
+- `spam`: the same, without `reason`, `sending_ip` and `template_id`.
+- `invalid_email`: only the common fields.
+- `opened`, `unique_opened`, `click`, `unsubscribed`, `proxy_open`: the `delivered` set plus `contact_id`, `device_used`, `user_agent`, `mirror_link`, and `link` for `click`.
+
+Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webhook/2.0 (mock-brevo)`. Delivery is best-effort: a failed POST is logged, not retried.
 
 ## Admin routes (not part of the Brevo API)
 
@@ -126,6 +161,9 @@ All settings are environment variables, sensible defaults for dev:
 | `GET` | `/mock-status/requests/{id}` | Full call detail (headers + body) |
 | `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant |
 | `POST` | `/mock-status/accounts/{apiKey}/campaigns` | Create a faker campaign |
+| `GET` | `/mock-status/accounts/{apiKey}/blocked` | A tenant's block list |
+| `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`; without `senderEmail`, the account's own address) |
+| `DELETE` | `/mock-status/accounts/{apiKey}/blocked/{email}` | Unblock a contact |
 | `POST` | `/mock-webhooks/fire` | Trigger an outbound Brevo webhook |
 
 ## Languages

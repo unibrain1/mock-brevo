@@ -82,6 +82,41 @@ test.describe('toggle', () => {
   });
 });
 
+test('request log links a call to its Brevo reference page', async ({ page, request }) => {
+  expect((await request.get('/v3/senders', { headers: { 'api-key': API_KEY } })).ok()).toBeTruthy();
+  await page.goto('/');
+  await page.locator('nav.tabs button[data-tab="requests"]').click();
+  const row = page.locator('#requestsBody tr.summary', { hasText: '/v3/senders' }).first();
+  await expect(row.locator('a.doc-link')).toHaveAttribute('href', 'https://developers.brevo.com/reference/get-senders');
+});
+
+test('campaign detail page links to the current Brevo doc slug', async ({ page }) => {
+  await page.goto(`/marketing-campaign/edit/${campaignId}`);
+  await expect(page.locator('.deep-card a.doc-link'))
+    .toHaveAttribute('href', 'https://developers.brevo.com/reference/get-email-campaign');
+});
+
+test.describe('block list', () => {
+  test.use({ locale: 'en-US' });
+
+  test('blocked counter opens a translated drill-down', async ({ page, request }) => {
+    const seeded = await request.post(`/mock-status/accounts/${API_KEY}/blocked`,
+      { data: { email: 'blocked-ui@example.com', reason: 'hardBounce' } });
+    expect(seeded.status()).toBe(201);
+
+    await page.goto('/');
+    await page.locator('#filter').fill(API_KEY);
+    await page.locator(`.counter-drill[data-drill="blocked"][data-api-key="${API_KEY}"]`).click();
+    const drill = page.locator('.drill-wrap[data-kind="blocked"]');
+    await expect(drill).toContainText('Blocked contacts (1)');
+    await expect(drill).toContainText('blocked-ui@example.com');
+    await expect(drill).toContainText('hardBounce');
+
+    await page.locator('#langToggle').click();
+    await expect(page.locator('.drill-wrap[data-kind="blocked"]')).toContainText('Contacts bloqués (1)');
+  });
+});
+
 test.describe('deep links', () => {
   test.use({ locale: 'en-US' });
 

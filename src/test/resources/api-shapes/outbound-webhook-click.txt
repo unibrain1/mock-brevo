@@ -1,16 +1,20 @@
 content-type: application/json
-header authorization: Bearer <token>
+header authorization: absent
 header content-length: present
 header transfer-encoding: absent
 header upgrade: absent
 header user-agent: Brevo-webhook/*
 protocol: HTTP/1.1
 $.X-Mailin-custom : string
+$.contact_id : integer
 $.date : string<datetime-spaced>
+$.device_used : string
 $.email : string
 $.event : string
 $.id : integer
+$.link : string
 $.message-id : string
+$.mirror_link : string
 $.reason : string
 $.sender_email : string
 $.sending_ip : string
@@ -21,4 +25,5 @@ $.template_id : integer
 $.ts : integer
 $.ts_epoch : integer
 $.ts_event : integer
+$.user_agent : string
 $.uuid : string
