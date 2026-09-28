@@ -806,7 +806,7 @@
         <div>
           <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
           <a class="btn-action" href="/mock-status" target="_blank" rel="noopener">/mock-status</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getemailcampaign" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
+          <a class="btn-action doc-link" href="${esc(docUrlFor('GET', '/v3/emailCampaigns/' + c.id))}" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };
@@ -852,7 +852,7 @@
         <div class="section-title">${esc(t('common.usefulLinks'))}</div>
         <div>
           <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getlist" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
+          <a class="btn-action doc-link" href="${esc(docUrlFor('GET', '/v3/contacts/lists/' + l.id))}" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };
