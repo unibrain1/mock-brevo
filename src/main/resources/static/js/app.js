@@ -112,49 +112,49 @@
   // BREVO DOC ROUTES — method+path pattern → developers.brevo.com slug
   // ============================================================
   const DOC_ROUTES = [
-    ['GET',    '/v3/account',                              'getaccount'],
-    ['GET',    '/v3/senders',                              'getsenders'],
-    ['POST',   '/v3/smtp/email',                           'sendtransacemail'],
+    ['GET',    '/v3/account',                              'get-account'],
+    ['GET',    '/v3/senders',                              'get-senders'],
+    ['POST',   '/v3/smtp/email',                           'send-transac-email'],
     ['GET',    '/v3/smtp/emails',                          'get-transac-emails-list'],
     ['GET',    '/v3/smtp/statistics/events',               'get-email-event-report'],
     ['GET',    '/v3/smtp/blockedContacts',                 'get-transac-blocked-contacts'],
     ['DELETE', '/v3/smtp/blockedContacts/*',               'unblock-or-resubscribe-a-transactional-contact'],
-    ['GET',    '/v3/smtp/templates',                       'getsmtptemplates'],
-    ['POST',   '/v3/smtp/templates',                       'createsmtptemplate'],
-    ['GET',    '/v3/smtp/templates/*',                     'getsmtptemplate'],
-    ['PUT',    '/v3/smtp/templates/*',                     'updatesmtptemplate'],
-    ['POST',   '/v3/smtp/templates/*/sendTemplate',        'sendtemplate'],
-    ['GET',    '/v3/contacts',                             'getcontacts'],
-    ['POST',   '/v3/contacts',                             'createcontact'],
-    ['GET',    '/v3/contacts/*',                           'getcontactinfo'],
-    ['PUT',    '/v3/contacts/*',                           'updatecontact'],
-    ['DELETE', '/v3/contacts/*',                           'deletecontact'],
-    ['GET',    '/v3/contacts/lists',                       'getlists'],
-    ['POST',   '/v3/contacts/lists',                       'createlist'],
-    ['GET',    '/v3/contacts/lists/*',                     'getlist'],
-    ['PUT',    '/v3/contacts/lists/*',                     'updatelist'],
-    ['DELETE', '/v3/contacts/lists/*',                     'deletelist'],
-    ['GET',    '/v3/contacts/lists/*/contacts',            'getcontactsfromlist'],
-    ['POST',   '/v3/contacts/lists/*/contacts/add',        'addcontacttolist'],
-    ['POST',   '/v3/contacts/lists/*/contacts/remove',     'removecontactfromlist'],
-    ['DELETE', '/v3/contacts/lists/*/contacts',            'removecontactfromlist'],
-    ['POST',   '/v3/contacts/import',                      'importcontacts'],
-    ['POST',   '/v3/contacts/export',                      'requestcontactexport'],
-    ['GET',    '/v3/contacts/folders',                     'getfolders'],
-    ['POST',   '/v3/contacts/folders',                     'createfolder'],
-    ['GET',    '/v3/contacts/folders/*',                   'getfolder'],
-    ['PUT',    '/v3/contacts/folders/*',                   'updatefolder'],
-    ['DELETE', '/v3/contacts/folders/*',                   'deletefolder'],
-    ['GET',    '/v3/contacts/folders/*/lists',             'getfolderlists'],
-    ['GET',    '/v3/emailCampaigns',                       'getemailcampaigns'],
-    ['POST',   '/v3/emailCampaigns',                       'createemailcampaign'],
-    ['GET',    '/v3/emailCampaigns/*',                     'getemailcampaign'],
-    ['PUT',    '/v3/emailCampaigns/*',                     'updateemailcampaign'],
-    ['DELETE', '/v3/emailCampaigns/*',                     'deleteemailcampaign'],
-    ['POST',   '/v3/emailCampaigns/*/sendNow',             'sendemailcampaignnow'],
-    ['POST',   '/v3/emailCampaigns/*/sendTest',            'sendtestemail'],
-    ['GET',    '/v3/webhooks',                             'getwebhooks'],
-    ['POST',   '/v3/webhooks',                             'createwebhook'],
+    ['GET',    '/v3/smtp/templates',                       'get-smtp-templates'],
+    ['POST',   '/v3/smtp/templates',                       'create-smtp-template'],
+    ['GET',    '/v3/smtp/templates/*',                     'get-smtp-template'],
+    ['PUT',    '/v3/smtp/templates/*',                     'update-smtp-template'],
+    ['POST',   '/v3/smtp/templates/*/sendTest',            'send-test-template'],
+    ['GET',    '/v3/contacts',                             'get-contacts'],
+    ['POST',   '/v3/contacts',                             'create-contact'],
+    ['GET',    '/v3/contacts/*',                           'get-contact-info'],
+    ['PUT',    '/v3/contacts/*',                           'update-contact'],
+    ['DELETE', '/v3/contacts/*',                           'delete-contact'],
+    ['GET',    '/v3/contacts/lists',                       'get-lists'],
+    ['POST',   '/v3/contacts/lists',                       'create-list'],
+    ['GET',    '/v3/contacts/lists/*',                     'get-list'],
+    ['PUT',    '/v3/contacts/lists/*',                     'update-list'],
+    ['DELETE', '/v3/contacts/lists/*',                     'delete-list'],
+    ['GET',    '/v3/contacts/lists/*/contacts',            'get-contacts-from-list'],
+    ['POST',   '/v3/contacts/lists/*/contacts/add',        'add-contact-to-list'],
+    ['POST',   '/v3/contacts/lists/*/contacts/remove',     'remove-contact-from-list'],
+    ['DELETE', '/v3/contacts/lists/*/contacts',            'remove-contact-from-list'],
+    ['POST',   '/v3/contacts/import',                      'import-contacts'],
+    ['POST',   '/v3/contacts/export',                      'request-contact-export'],
+    ['GET',    '/v3/contacts/folders',                     'get-folders'],
+    ['POST',   '/v3/contacts/folders',                     'create-folder'],
+    ['GET',    '/v3/contacts/folders/*',                   'get-folder'],
+    ['PUT',    '/v3/contacts/folders/*',                   'update-folder'],
+    ['DELETE', '/v3/contacts/folders/*',                   'delete-folder'],
+    ['GET',    '/v3/contacts/folders/*/lists',             'get-folder-lists'],
+    ['GET',    '/v3/emailCampaigns',                       'get-email-campaigns'],
+    ['POST',   '/v3/emailCampaigns',                       'create-email-campaign'],
+    ['GET',    '/v3/emailCampaigns/*',                     'get-email-campaign'],
+    ['PUT',    '/v3/emailCampaigns/*',                     'update-email-campaign'],
+    ['DELETE', '/v3/emailCampaigns/*',                     'delete-email-campaign'],
+    ['POST',   '/v3/emailCampaigns/*/sendNow',             'send-email-campaign-now'],
+    ['POST',   '/v3/emailCampaigns/*/sendTest',            'send-test-email'],
+    ['GET',    '/v3/webhooks',                             'get-webhooks'],
+    ['POST',   '/v3/webhooks',                             'create-webhook'],
   ];
 
   const matchPattern = (pattern, path) => {
@@ -806,7 +806,7 @@
         <div>
           <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
           <a class="btn-action" href="/mock-status" target="_blank" rel="noopener">/mock-status</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getemailcampaign" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
+          <a class="btn-action doc-link" href="${esc(docUrlFor('GET', '/v3/emailCampaigns/' + c.id))}" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };
@@ -852,7 +852,7 @@
         <div class="section-title">${esc(t('common.usefulLinks'))}</div>
         <div>
           <a class="btn-action" href="/" title="${esc(t('common.home'))}">${esc(t('common.mainUi'))}</a>
-          <a class="btn-action doc-link" href="https://developers.brevo.com/reference/getlist" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
+          <a class="btn-action doc-link" href="${esc(docUrlFor('GET', '/v3/contacts/lists/' + l.id))}" target="_blank" rel="noopener">${esc(t('common.brevoDocs'))} ↗</a>
         </div>
       </div>`;
   };

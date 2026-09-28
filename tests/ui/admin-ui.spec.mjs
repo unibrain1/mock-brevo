@@ -82,6 +82,20 @@ test.describe('toggle', () => {
   });
 });
 
+test('request log links a call to its Brevo reference page', async ({ page, request }) => {
+  expect((await request.get('/v3/senders', { headers: { 'api-key': API_KEY } })).ok()).toBeTruthy();
+  await page.goto('/');
+  await page.locator('nav.tabs button[data-tab="requests"]').click();
+  const row = page.locator('#requestsBody tr.summary', { hasText: '/v3/senders' }).first();
+  await expect(row.locator('a.doc-link')).toHaveAttribute('href', 'https://developers.brevo.com/reference/get-senders');
+});
+
+test('campaign detail page links to the current Brevo doc slug', async ({ page }) => {
+  await page.goto(`/marketing-campaign/edit/${campaignId}`);
+  await expect(page.locator('.deep-card a.doc-link'))
+    .toHaveAttribute('href', 'https://developers.brevo.com/reference/get-email-campaign');
+});
+
 test.describe('block list', () => {
   test.use({ locale: 'en-US' });
 
