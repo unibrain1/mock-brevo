@@ -162,7 +162,7 @@ Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webho
 | `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant |
 | `POST` | `/mock-status/accounts/{apiKey}/campaigns` | Create a faker campaign |
 | `GET` | `/mock-status/accounts/{apiKey}/blocked` | A tenant's block list |
-| `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`) |
+| `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`; without `senderEmail`, the account's own address) |
 | `DELETE` | `/mock-status/accounts/{apiKey}/blocked/{email}` | Unblock a contact |
 | `POST` | `/mock-webhooks/fire` | Trigger an outbound Brevo webhook |
 

@@ -21,8 +21,14 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.enoria.mockbrevo.domain.Account;
@@ -128,7 +134,7 @@ class BrevoApiTest {
 
         String body = json.writeValueAsString(java.util.Map.of(
                 "fileBody", "EMAIL,FIRST_NAME,LAST_NAME\nada@example.com,Ada,Lovelace\nalan@example.com,Alan,Turing",
-                "listIds", java.util.List.of(listId),
+                "listIds", List.of(listId),
                 "updateExistingContacts", true));
 
         mvc.perform(post("/v3/contacts/import").header("api-key", key)
@@ -454,6 +460,35 @@ class BrevoApiTest {
     }
 
     @Test
+    void overlappingFiresForTheSameNewAddressBlockItOnce() throws Exception {
+        String key = newKey();
+        mvc.perform(get("/v3/account").header("api-key", key)).andExpect(status().isOk());
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try (Hook hook = Hook.start()) {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Integer>> results = new ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                String event = i % 2 == 0 ? "hard_bounce" : "spam";
+                results.add(pool.submit(() -> {
+                    start.await();
+                    return mvc.perform(post("/mock-webhooks/fire").contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"url\":\"" + hook.url() + "\",\"event\":\"" + event
+                                            + "\",\"email\":\"race@example.com\",\"apiKey\":\"" + key + "\"}"))
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            start.countDown();
+            for (var r : results) assertEquals(202, r.get(20, TimeUnit.SECONDS));
+            for (int i = 0; i < 8; i++) hook.next();
+        } finally {
+            pool.shutdownNow();
+        }
+        mvc.perform(get("/v3/smtp/blockedContacts").header("api-key", key))
+                .andExpect(jsonPath("$.count").value(1));
+        assertEquals(8, emailEvents.countByAccount(accounts.findByApiKey(key).orElseThrow()));
+    }
+
+    @Test
     void blockListPagesFiltersAndUnblocks() throws Exception {
         String key = newKey();
         mvc.perform(get("/v3/account").header("api-key", key)).andExpect(status().isOk());
@@ -485,7 +520,23 @@ class BrevoApiTest {
         mvc.perform(get("/mock-status/accounts/" + key + "/blocked"))
                 .andExpect(jsonPath("$.count").value(2));
 
-        for (String[] q : new String[][] {{"limit", "101"}, {"offset", "-1"}, {"sort", "up"}, {"startDate", today()}, {"offset", "x"}}) {
+        // Unblock matches the address case-insensitively.
+        mvc.perform(delete(url + "/B@Example.com").header("api-key", key))
+                .andExpect(status().isNoContent());
+        // A second block of the same address updates the entry: the latest block wins.
+        mvc.perform(post("/mock-status/accounts/" + key + "/blocked").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"c@example.com\",\"reason\":\"hardBounce\"}"))
+                .andExpect(status().isCreated());
+        mvc.perform(get(url).header("api-key", key))
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.contacts[0].reason.code").value("hardBounce"));
+        // The admin route removes it; a second removal is a 404.
+        mvc.perform(delete("/mock-status/accounts/" + key + "/blocked/c@example.com"))
+                .andExpect(status().isNoContent());
+        mvc.perform(delete("/mock-status/accounts/" + key + "/blocked/c@example.com"))
+                .andExpect(status().isNotFound());
+
+        for (String[] q : new String[][] {{"limit", "101"}, {"offset", "-1"}, {"sort", "up"}, {"startDate", today()}, {"offset", "x"}, {"limit", "x"}}) {
             mvc.perform(get(url).header("api-key", key).param(q[0], q[1]))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("invalid_parameter"));
