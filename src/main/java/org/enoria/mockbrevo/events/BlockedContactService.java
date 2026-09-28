@@ -4,13 +4,11 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import org.enoria.mockbrevo.domain.Account;
+import org.enoria.mockbrevo.domain.AccountRepository;
 import org.enoria.mockbrevo.domain.BlockedContact;
 import org.enoria.mockbrevo.domain.BlockedContactRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /** The transactional block list: filled by fired events or seeded through admin routes. */
 @Service
@@ -35,35 +33,31 @@ public class BlockedContactService {
             "unsubscribed", "unsubscribedViaEmail");
 
     private final BlockedContactRepository blocked;
-    private final TransactionTemplate newTransaction;
-    /** One JVM: this lock plus the inner commit makes find-then-insert safe for overlapping fires. */
-    private final Object upsertLock = new Object();
+    private final AccountRepository accounts;
 
-    public BlockedContactService(BlockedContactRepository blocked, PlatformTransactionManager transactions) {
+    public BlockedContactService(BlockedContactRepository blocked, AccountRepository accounts) {
         this.blocked = blocked;
-        this.newTransaction = new TransactionTemplate(transactions);
-        this.newTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.accounts = accounts;
     }
 
     /** Blocks the recipient if {@code event} is one Brevo blocks on. */
+    @Transactional
     public void onEvent(Account account, String event, String email, String senderEmail, Instant at) {
         String code = BLOCKING_EVENTS.get(event);
         if (code != null) block(account, email, senderEmail, code, at);
     }
 
     /**
-     * Adds or updates the entry; the latest block wins, as in Brevo. The upsert commits
-     * in its own transaction inside the lock, so two overlapping fires for the same new
-     * address can't both insert and break the (account, email) unique constraint.
+     * Adds or updates the entry; the latest {@code blockedAt} wins, as in Brevo. Runs in the
+     * caller's transaction, so the entry commits (or rolls back) with its email event. The
+     * account row is locked first, so two overlapping fires for the same new address can't
+     * both insert and break the (account, email) unique constraint.
      */
+    @Transactional
     public BlockedContact block(Account account, String email, String senderEmail, String reasonCode, Instant at) {
-        synchronized (upsertLock) {
-            return newTransaction.execute(status -> upsert(account, email, senderEmail, reasonCode, at));
-        }
-    }
-
-    private BlockedContact upsert(Account account, String email, String senderEmail, String reasonCode, Instant at) {
+        accounts.lockById(account.getId());
         BlockedContact c = blocked.findByAccountAndEmailIgnoreCase(account, email).orElseGet(BlockedContact::new);
+        if (c.getBlockedAt() != null && c.getBlockedAt().isAfter(at)) return c;
         c.setAccount(account);
         c.setEmail(email);
         // senderEmail is required by the Brevo SDK model, so fall back to the account's own address.

@@ -16,7 +16,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** One entry in an account's transactional block list (Brevo's suppression list). */
+/**
+ * One entry in an account's transactional block list (Brevo's suppression list).
+ * The unique constraint is case-sensitive, but lookups ignore case: write only through
+ * BlockedContactService, which finds the existing entry first.
+ */
 @Entity
 @Table(name = "blocked_contact",
         indexes = @Index(columnList = "account_id"),

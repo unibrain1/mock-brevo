@@ -463,11 +463,13 @@ class BrevoApiTest {
     void overlappingFiresForTheSameNewAddressBlockItOnce() throws Exception {
         String key = newKey();
         mvc.perform(get("/v3/account").header("api-key", key)).andExpect(status().isOk());
-        ExecutorService pool = Executors.newFixedThreadPool(8);
+        ExecutorService pool = Executors.newFixedThreadPool(16);
         try (Hook hook = Hook.start()) {
             CountDownLatch start = new CountDownLatch(1);
             List<Future<Integer>> results = new ArrayList<>();
-            for (int i = 0; i < 8; i++) {
+            // More threads than the connection pool (10), so a fix that needs a second
+            // connection per fire would stall here.
+            for (int i = 0; i < 16; i++) {
                 String event = i % 2 == 0 ? "hard_bounce" : "spam";
                 results.add(pool.submit(() -> {
                     start.await();
@@ -479,13 +481,13 @@ class BrevoApiTest {
             }
             start.countDown();
             for (var r : results) assertEquals(202, r.get(20, TimeUnit.SECONDS));
-            for (int i = 0; i < 8; i++) hook.next();
+            for (int i = 0; i < 16; i++) hook.next();
         } finally {
             pool.shutdownNow();
         }
         mvc.perform(get("/v3/smtp/blockedContacts").header("api-key", key))
                 .andExpect(jsonPath("$.count").value(1));
-        assertEquals(8, emailEvents.countByAccount(accounts.findByApiKey(key).orElseThrow()));
+        assertEquals(16, emailEvents.countByAccount(accounts.findByApiKey(key).orElseThrow()));
     }
 
     @Test
