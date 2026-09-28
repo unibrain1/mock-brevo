@@ -57,7 +57,7 @@
         '<code>api-key: &lt;votre-clé&gt;</code> pour provisionner un compte. ' +
         'Chaque nouveau compte reçoit automatiquement <strong>2 campagnes par défaut</strong>.',
       'accounts.resetTitle':
-        'Supprimer tous les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs et emails — irréversible',
+        'Supprimer tous les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs, emails, événements et listes de blocage — irréversible',
       'accounts.resetLabel': 'Tout réinitialiser',
       'accounts.col.apiKey': 'Clé API',
       'accounts.col.identity': 'Identité',
@@ -85,6 +85,12 @@
       'drill.listsTitle': 'Listes ({n}) — cliquer sur le nom pour ouvrir la vue détail',
       'drill.col.contacts': 'Contacts',
       'drill.col.folder': 'Dossier',
+      'drill.noBlocked': 'Aucun contact bloqué.',
+      'drill.blockedTitle': 'Contacts bloqués ({n}) — liste de suppression transactionnelle',
+      'drill.col.email': 'Email',
+      'drill.col.sender': 'Expéditeur',
+      'drill.col.reason': 'Raison',
+      'drill.col.blockedAt': 'Bloqué',
 
       'requests.hintHtml':
         'Buffer mémoire des derniers appels sur <code>/v3/**</code> et <code>/mock-webhooks/**</code> ' +
@@ -156,7 +162,7 @@
       'deep.listPrefix': 'Liste',
 
       'reset.confirm':
-        'Supprimer définitivement TOUS les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs et emails ?\n\nCette action est irréversible.',
+        'Supprimer définitivement TOUS les comptes, contacts, listes, campagnes, templates, dossiers, expéditeurs, emails, événements et listes de blocage ?\n\nCette action est irréversible.',
       'reset.running': 'Réinitialisation…',
     },
 
@@ -197,7 +203,7 @@
         '<code>api-key: &lt;your-key&gt;</code> header to provision an account. ' +
         'Every new account automatically gets <strong>2 default campaigns</strong>.',
       'accounts.resetTitle':
-        'Delete all accounts, contacts, lists, campaigns, templates, folders, senders and emails — cannot be undone',
+        'Delete all accounts, contacts, lists, campaigns, templates, folders, senders, emails, email events and block lists — cannot be undone',
       'accounts.resetLabel': 'Reset everything',
       'accounts.col.apiKey': 'API key',
       'accounts.col.identity': 'Identity',
@@ -225,6 +231,12 @@
       'drill.listsTitle': 'Lists ({n}) — click a name to open the detail view',
       'drill.col.contacts': 'Contacts',
       'drill.col.folder': 'Folder',
+      'drill.noBlocked': 'No blocked contacts.',
+      'drill.blockedTitle': 'Blocked contacts ({n}) — transactional suppression list',
+      'drill.col.email': 'Email',
+      'drill.col.sender': 'Sender',
+      'drill.col.reason': 'Reason',
+      'drill.col.blockedAt': 'Blocked',
 
       'requests.hintHtml':
         'In-memory buffer of the latest calls to <code>/v3/**</code> and <code>/mock-webhooks/**</code> ' +
@@ -296,7 +308,7 @@
       'deep.listPrefix': 'List',
 
       'reset.confirm':
-        'Permanently delete ALL accounts, contacts, lists, campaigns, templates, folders, senders and emails?\n\nThis cannot be undone.',
+        'Permanently delete ALL accounts, contacts, lists, campaigns, templates, folders, senders, emails, email events and block lists?\n\nThis cannot be undone.',
       'reset.running': 'Resetting…',
     },
   };

@@ -16,6 +16,7 @@ import org.enoria.mockbrevo.domain.Contact;
 import org.enoria.mockbrevo.domain.ContactRepository;
 import org.enoria.mockbrevo.domain.SentEmail;
 import org.enoria.mockbrevo.domain.SentEmailRepository;
+import org.enoria.mockbrevo.events.BlockedContactService;
 import org.enoria.mockbrevo.events.EmailEventService;
 import org.enoria.mockbrevo.events.EmailEventService.EventData;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class WebhookService {
     private final SentEmailRepository sentEmails;
     private final ContactRepository contacts;
     private final EmailEventService events;
+    private final BlockedContactService blockList;
     private final WebhookSender sender;
     private final MockBrevoProperties properties;
     private final ObjectMapper objectMapper;
@@ -63,12 +65,14 @@ public class WebhookService {
             SentEmailRepository sentEmails,
             ContactRepository contacts,
             EmailEventService events,
+            BlockedContactService blockList,
             WebhookSender sender,
             MockBrevoProperties properties,
             ObjectMapper objectMapper) {
         this.sentEmails = sentEmails;
         this.contacts = contacts;
         this.events = events;
+        this.blockList = blockList;
         this.sender = sender;
         this.properties = properties;
         this.objectMapper = objectMapper;
@@ -135,6 +139,7 @@ public class WebhookService {
 
         if (account != null) {
             events.record(account, data);
+            blockList.onEvent(account, data.event(), data.email(), data.senderEmail(), now);
         }
 
         String token = blankToNull(f.token()) != null ? f.token() : properties.getWebhookToken();
