@@ -55,7 +55,7 @@ public class BlockedContactService {
      */
     @Transactional
     public BlockedContact block(Account account, String email, String senderEmail, String reasonCode, Instant at) {
-        accounts.lockById(account.getId());
+        lockAccount(account);
         BlockedContact c = blocked.findByAccountAndEmailIgnoreCase(account, email).orElseGet(BlockedContact::new);
         if (c.getBlockedAt() != null && c.getBlockedAt().isAfter(at)) return c;
         c.setAccount(account);
@@ -70,8 +70,15 @@ public class BlockedContactService {
     /** @return true if the contact was on the list */
     @Transactional
     public boolean unblock(Account account, String email) {
+        lockAccount(account);
         Optional<BlockedContact> c = blocked.findByAccountAndEmailIgnoreCase(account, email);
         c.ifPresent(blocked::delete);
         return c.isPresent();
+    }
+
+    /** Serializes block and unblock for one account; the lock holds until the transaction ends. */
+    private void lockAccount(Account account) {
+        accounts.lockById(account.getId())
+                .orElseThrow(() -> new IllegalStateException("account " + account.getId() + " no longer exists"));
     }
 }
