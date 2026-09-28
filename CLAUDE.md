@@ -19,6 +19,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
 
+If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs. On Docker Desktop (macOS):
+
+```bash
+docker run --rm -v "$PWD":/w -v mock-brevo-m2:/root/.m2 -w /w eclipse-temurin:25-jdk ./mvnw -q -Plint verify
+```
+
+On a Linux host, run as your own user and bind-mount your Maven cache, or `target/` becomes owned by root (a new named volume would be owned by root too):
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$HOME/.m2":/tmp/.m2 \
+  -v "$PWD":/w -w /w eclipse-temurin:25-jdk ./mvnw -q -Plint verify
+```
+
 ```bash
 ./mvnw spring-boot:run                          # run from sources (port 8080, hot path for demos)
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port=18080"
@@ -38,9 +51,20 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
+Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
+
 CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; its checklist mirrors the rules in this file, and a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
+
+### Check a change against the real Brevo PHP SDK
+
+The SDK deserializes strictly, and its models have required fields (`valid()` / `listInvalidProperties()`). Get the SDK version your client uses: with a local ElanRegistry checkout, it is vendored (v1.0.2) at `Registry/usersc/plugins/sendinblue/vendor`. Otherwise run `composer require getbrevo/brevo-php:1.0.2` in a scratch directory. To check a new endpoint with it:
+
+1. Build and run the branch: `docker build -t mock-brevo:check . && docker run -d --name mb-check -p 127.0.0.1:18092:8080 mock-brevo:check`.
+2. Seed data with `curl` (a send, then `/mock-webhooks/fire`).
+3. Run a PHP script in `php:8.3-cli` with the vendor dir mounted read-only and `--add-host=host.docker.internal:host-gateway`. Set the host to `http://host.docker.internal:18092/v3`, make the same call the client makes, and print `valid()` for each model.
+4. Remove the container and the image when done (see "Docker disk" below).
 
 ## Architecture
 
@@ -114,6 +138,29 @@ Defined in `MockBrevoProperties` (`mock-brevo.*` prefix, bound in `application.y
 | `webhook-token` | `MOCK_WEBHOOK_TOKEN` | `""` | Default bearer token for outbound webhooks (`Authorization: Bearer …`) |
 | H2 file path | `MOCK_BREVO_DB_PATH` | `./data/brevo` | Controls `jdbc:h2:file:…` location |
 
+## Working on this repo
+
+### Branches and PRs
+
+- A milestone gets a branch `milestone/vX.Y.Z` from `main`. Each issue gets a branch from it (`issue/<n>-<slug>`) and a PR into the milestone branch. One PR merges the milestone branch into `main`.
+- GitHub closes an issue from "Closes #N" only when the PR merges into `main`. Put "Closes #…" for every milestone issue in the milestone → `main` PR.
+- **Stacked PRs:** before you merge a PR with `--delete-branch`, move every PR that is based on its branch to the milestone branch (`gh pr edit <n> --base milestone/vX.Y.Z`). Deleting a base branch **closes** the PRs on it; it does not move them.
+- Each branch adds its own line under `## [Unreleased]` in `CHANGELOG.md`, so a rebase often conflicts there. Keep every branch's line.
+
+### The Claude review
+
+- Fix every **Blocking** and **Important** finding. Take one round of **Suggestions**, then reply with what you did not change and why, and merge. Do not loop on optional suggestions.
+- "Claude encountered an error" in the review comment means the workflow failed, not the code. The `claude-review` check can then fail with no Blocking section. Read the last complete review.
+
+### Tests
+
+- A new test must **fail** when you revert the fix. Check this once: revert the fix, run the test, restore the fix. In this repo two tests passed with the bug still present: a log-truncation test whose cut fell before the token, and an end-to-end test of the webhook order.
+- Do not test the order of `@Async` work end to end. The other thread usually wins the race anyway. Mock the async bean and call the method in a `TransactionTemplate` (see `WebhookAfterCommitTest`).
+
+### Docker disk
+
+Image checks fill the Docker disk quickly, and on Docker Desktop the disk is shared by every project (`No space left on device`, `Unable to create tempDir`). Use one scratch tag (such as `mock-brevo:check`), and remove the containers and images you create when the check is done. `docker builder prune -f` frees the build cache, but ask first: the cache can belong to other projects.
+
 ## Releasing (this fork)
 
 The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.version>` records the upstream base.
@@ -121,6 +168,14 @@ The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.
 1. Collect changes under `## [Unreleased]` in `CHANGELOG.md` as you go. In a PR, bump with upstream's script: `scripts/new_version.sh 1.1.0 --bump-only`. Run it **without** `-m`: then it moves the `[Unreleased]` content under the new version (with `-m` it inserts a new section and leaves `[Unreleased]` behind). It updates `pom.xml` and `CHANGELOG.md` without committing, and calls `./mvnw`, so run it where Java 25 is available (or in `eclipse-temurin:25-jdk`). Then edit the entry to state the upstream base, and add the version to the README's "Fork versions" table.
 2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`; `latest` only ever comes from a release tag (a manual `workflow_dispatch` run from `main` publishes just a `main` tag; its `version` input sets only the `IMAGE_VERSION` build-arg, not the image tags).
 3. Only tag forward: re-running an older release moves `latest` back to it.
+
+Only the tag push runs `release.yml`, so CI does not test its steps. Before you tag, run the step that reads the upstream base on the branch you tag. It must print exactly one version. The command is a copy of the `upstream` step in `release.yml`; if you change one, change the other:
+
+```bash
+sed -n 's:.*<upstream.version>\([^$<][^<]*\)</upstream.version>.*:\1:p' pom.xml | head -n1
+```
+
+`pom.xml` has a second `<upstream.version>` line (`${upstream.version}`, in the `build-info` config). This broke the `v1.1.0` run, and the step now skips values that start with `$`. If a release run fails **before** it publishes an image (check `docker manifest inspect ghcr.io/unibrain1/mock-brevo:<version>`), fix it on `main`, delete the remote tag and tag again. If it published anything, release the next patch version instead.
 
 Keep only the `origin` remote (unibrain1/mock-brevo). Do not keep a permanent `upstream` remote: with one, `gh` can pick c0boleis/mock-brevo as the target of `gh pr create`. In each clone:
 
@@ -154,4 +209,7 @@ When adding a new Brevo endpoint: (1) add a DTO record in `brevo/dto/` with `@Js
 
 - **Don't enable `AUTO_SERVER=TRUE` on the H2 JDBC URL.** It triggers `NoClassDefFoundError: org/h2/util/NetworkConnectionInfo` under Spring Boot's nested-jar classloader when a second JVM (e.g. parallel tests) tries to connect. The datasource URL in `application.yml` is plain file mode.
 - **Lombok annotation processing** must stay enabled. Entities rely on `@Getter`/`@Setter`. Since JDK 23 javac only runs processors listed in `annotationProcessorPaths` (see `pom.xml`); "cannot find symbol" on getters means Lombok didn't run.
+- **Async work that reads a row needs `afterCommit`.** `SmtpForwarder.forward` is `@Async` and reads the `SentEmail` by id, and `WebhookSender.send` must not reach a receiver before the event row exists. Inside a transaction, register them with `TransactionSynchronizationManager.registerSynchronization(... afterCommit ...)`, as `TransactionalEmailController.send` and `WebhookService.fire` do.
+- **Keep `Cache-Control: no-cache` on the admin UI files** (`spring.web.resources.cache` in `application.yml`). Without it, a browser used an `app.js` from an older image with a newer `index.html`, and the FR/EN toggle did nothing. After such an upgrade, one hard reload is still necessary.
+- **Brevo doc links use kebab-case slugs** (`get-transac-blocked-contacts`). Many old slugs in `DOC_ROUTES` return 404 (#29). Check a new slug with `curl -sL -o /dev/null -w '%{http_code}' https://developers.brevo.com/reference/<slug>`.
 - **Don't actually send email.** `POST /v3/smtp/email` stores the payload and returns a synthetic `messageId`. The only outbound mail path is the opt-in `SmtpForwarder` (`MOCK_SMTP_ENABLED`, off by default), meant for a local catcher such as Mailpit; don't add any other transport or enable it by default.
