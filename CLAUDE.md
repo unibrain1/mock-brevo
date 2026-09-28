@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
 
-If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs:
+If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs. This command is for Docker Desktop (macOS). On a Linux host, add `--user "$(id -u):$(id -g)" -e HOME=/tmp` and mount the volume at `/tmp/.m2`, or `target/` becomes owned by root:
 
 ```bash
 docker run --rm -v "$PWD":/w -v mock-brevo-m2:/root/.m2 -w /w eclipse-temurin:25-jdk ./mvnw -q -Plint verify
@@ -52,7 +52,7 @@ The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
 ### Check a change against the real Brevo PHP SDK
 
-The SDK deserializes strictly, and its models have required fields (`valid()` / `listInvalidProperties()`). ElanRegistry vendors `getbrevo/brevo-php` v1.0.2 at `~/Developer/Web/ElanRegistry/Registry/usersc/plugins/sendinblue/vendor`. To check a new endpoint with it:
+The SDK deserializes strictly, and its models have required fields (`valid()` / `listInvalidProperties()`). Get the SDK version your client uses: with a local ElanRegistry checkout, it is vendored (v1.0.2) at `Registry/usersc/plugins/sendinblue/vendor`. Otherwise run `composer require getbrevo/brevo-php:1.0.2` in a scratch directory. To check a new endpoint with it:
 
 1. Build and run the branch: `docker build -t mock-brevo:check . && docker run -d --name mb-check -p 127.0.0.1:18092:8080 mock-brevo:check`.
 2. Seed data with `curl` (a send, then `/mock-webhooks/fire`).
@@ -148,7 +148,7 @@ Defined in `MockBrevoProperties` (`mock-brevo.*` prefix, bound in `application.y
 
 ### Docker disk
 
-The Docker VM disk is shared with other projects and fills up (`No space left on device`, `Unable to create tempDir`). Use one scratch tag (such as `mock-brevo:check`), and remove the containers and images you create when the check is done. `docker builder prune -f` frees the build cache, but ask first: it is not only this project's.
+Image checks fill the Docker disk quickly, and on Docker Desktop the disk is shared by every project (`No space left on device`, `Unable to create tempDir`). Use one scratch tag (such as `mock-brevo:check`), and remove the containers and images you create when the check is done. `docker builder prune -f` frees the build cache, but ask first: the cache can belong to other projects.
 
 ## Releasing (this fork)
 
@@ -158,7 +158,7 @@ The fork uses its own SemVer (see README "Fork versions"); `pom.xml` `<upstream.
 2. Merge the PR, then tag `main`: `git tag -a v1.1.0 -m "…" && git push origin v1.1.0`. `release.yml` publishes `1.1.0`, `1.1`, `1` and `latest`; `latest` only ever comes from a release tag (a manual `workflow_dispatch` run from `main` publishes just a `main` tag; its `version` input sets only the `IMAGE_VERSION` build-arg, not the image tags).
 3. Only tag forward: re-running an older release moves `latest` back to it.
 
-Only the tag push runs `release.yml`, so CI does not test its steps. Before you tag, run the step that reads the upstream base on the branch you tag. It must print exactly one version:
+Only the tag push runs `release.yml`, so CI does not test its steps. Before you tag, run the step that reads the upstream base on the branch you tag. It must print exactly one version. The command is a copy of the `upstream` step in `release.yml`; if you change one, change the other:
 
 ```bash
 sed -n 's:.*<upstream.version>\([^$<][^<]*\)</upstream.version>.*:\1:p' pom.xml | head -n1
