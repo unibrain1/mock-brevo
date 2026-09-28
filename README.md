@@ -23,7 +23,8 @@ Local mock of the [Brevo](https://developers.brevo.com/) (ex-Sendinblue) transac
   - French/English toggle (see [Languages](#languages))
   - inline form to create faker campaigns per account
   - direct links to the matching Brevo documentation page for each logged endpoint
-- **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL.
+- **Webhook simulation** — outbound `delivered`, `hard_bounce`, `opened`, `click`, etc. to a client-controlled URL. See [Webhook simulation](#webhook-simulation).
+- **Transactional event report** (`GET /v3/smtp/statistics/events`) — every send (`requests`) and every simulated webhook event, with Brevo's filters (`startDate`/`endDate` or `days`, `email`, `event`, `tags`, `messageId`, `templateId`), paging and `sort`.
 
 See [`ENDPOINTS.md`](ENDPOINTS.md) for the full endpoint coverage matrix.
 

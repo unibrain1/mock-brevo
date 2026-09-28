@@ -1,0 +1,13 @@
+status: 200
+content-type: application/json
+$.events[].date : string<datetime-offset>
+$.events[].email : string
+$.events[].event : string
+$.events[].from : string
+$.events[].ip : string
+$.events[].link : string
+$.events[].messageId : string
+$.events[].reason : string
+$.events[].subject : string
+$.events[].tag : string
+$.events[].templateId : integer

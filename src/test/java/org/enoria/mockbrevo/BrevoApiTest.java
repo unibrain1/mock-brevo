@@ -2,6 +2,7 @@ package org.enoria.mockbrevo;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,6 +18,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -242,7 +245,8 @@ class BrevoApiTest {
         }
         Account account = accounts.findByApiKey(key).orElseThrow();
         Account otherAccount = accounts.findByApiKey(other).orElseThrow();
-        assertEquals(1, emailEvents.countByAccount(account));
+        // The send's "request" event plus the fired hard_bounce.
+        assertEquals(2, emailEvents.countByAccount(account));
         assertEquals(1, emailEvents.countByAccount(otherAccount));
     }
 
@@ -307,6 +311,118 @@ class BrevoApiTest {
                 .andExpect(jsonPath("$.path").value("/mock-webhooks/fire"))
                 .andExpect(jsonPath("$.requestBody", containsString("\"token\":\"***\"")))
                 .andExpect(jsonPath("$.requestBody", not(containsString("do-not-log-me"))));
+    }
+
+    @Test
+    void eventReportListsSendsAndFiredEventsForTheAccountOnly() throws Exception {
+        String key = newKey();
+        String other = newKey();
+        String messageId;
+        try (Hook hook = Hook.start()) {
+            messageId = sendEmail(key, "to@example.com", "[\"car_verification\"]");
+            fire(hook.url(), "hard_bounce", "to@example.com", messageId, ",\"reason\":\"user unknown\"");
+            hook.next();
+        }
+        mvc.perform(get("/v3/smtp/statistics/events").header("api-key", key)
+                        .param("startDate", today()).param("endDate", today()).param("sort", "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(2))
+                .andExpect(jsonPath("$.events[0].event").value("hardBounces"))
+                .andExpect(jsonPath("$.events[0].reason").value("user unknown"))
+                .andExpect(jsonPath("$.events[0].tag").value("car_verification"))
+                .andExpect(jsonPath("$.events[0].messageId").value(messageId))
+                .andExpect(jsonPath("$.events[0].email").value("to@example.com"))
+                .andExpect(jsonPath("$.events[0].date").value(matchesPattern(
+                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\+00:00")))
+                .andExpect(jsonPath("$.events[1].event").value("requests"));
+
+        mvc.perform(get("/v3/smtp/statistics/events").header("api-key", other))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(0));
+    }
+
+    @Test
+    void eventReportFiltersPagesAndSorts() throws Exception {
+        String key = newKey();
+        try (Hook hook = Hook.start()) {
+            String m1 = sendEmail(key, "a@example.com", "[\"registry\"]");
+            String m2 = sendEmail(key, "b@example.com", "[\"car_verification\"]");
+            fire(hook.url(), "soft_bounce", "a@example.com", m1, "");
+            fire(hook.url(), "hard_bounce", "b@example.com", m2, "");
+            hook.next();
+            hook.next();
+        }
+        String url = "/v3/smtp/statistics/events";
+        mvc.perform(get(url).header("api-key", key).param("event", "bounces"))
+                .andExpect(jsonPath("$.events.length()").value(2));
+        mvc.perform(get(url).header("api-key", key).param("event", "hardBounces"))
+                .andExpect(jsonPath("$.events[0].email").value("b@example.com"))
+                .andExpect(jsonPath("$.events.length()").value(1));
+        mvc.perform(get(url).header("api-key", key).param("email", "a@example.com"))
+                .andExpect(jsonPath("$.events.length()").value(2));
+        mvc.perform(get(url).header("api-key", key).param("tags", "[\"car_verification\"]"))
+                .andExpect(jsonPath("$.events.length()").value(2));
+        mvc.perform(get(url).header("api-key", key).param("tags", "[]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(4));
+        mvc.perform(get(url).header("api-key", key).param("sort", "asc").param("limit", "1"))
+                .andExpect(jsonPath("$.events.length()").value(1))
+                .andExpect(jsonPath("$.events[0].event").value("requests"))
+                .andExpect(jsonPath("$.events[0].email").value("a@example.com"));
+        mvc.perform(get(url).header("api-key", key).param("sort", "desc").param("offset", "1").param("limit", "1"))
+                .andExpect(jsonPath("$.events[0].event").value("softBounces"));
+        mvc.perform(get(url).header("api-key", key).param("startDate", "2000-01-01").param("endDate", "2000-01-02"))
+                .andExpect(jsonPath("$.events.length()").value(0));
+    }
+
+    @Test
+    void eventReportDaysCountsWholeDaysIncludingToday() throws Exception {
+        String key = newKey();
+        sendEmail(key, "to@example.com", "[\"registry\"]");
+        mvc.perform(get("/v3/smtp/statistics/events").header("api-key", key).param("days", "1"))
+                .andExpect(jsonPath("$.events.length()").value(1));
+    }
+
+    @Test
+    void overlongRecipientIsRejectedBeforeAnythingIsSaved() throws Exception {
+        String key = newKey();
+        String longAddress = "a".repeat(320) + "@example.com";
+        mvc.perform(post("/v3/smtp/email").header("api-key", key).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sender\":{\"email\":\"s@example.com\"},\"to\":[{\"email\":\"" + longAddress
+                                + "\"}],\"subject\":\"Hi\",\"htmlContent\":\"<p>x</p>\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_parameter"));
+        mvc.perform(get("/mock-status/accounts/" + key + "/emails"))
+                .andExpect(jsonPath("$.count").value(0));
+    }
+
+    @Test
+    void eventReportRejectsInvalidParameters() throws Exception {
+        String key = newKey();
+        String url = "/v3/smtp/statistics/events";
+        for (String[] q : new String[][] {
+                {"startDate", "2026-01-01"},
+                {"startDate", "2026-01-02", "endDate", "2026-01-01"},
+                {"startDate", "01/01/2026", "endDate", "2026-01-02"},
+                {"startDate", "2026-01-01", "endDate", "2026-01-02", "days", "3"},
+                {"days", "91"},
+                {"limit", "5001"},
+                {"offset", "-1"},
+                {"sort", "up"},
+                {"event", "bounced"},
+                {"limit", "abc"},
+                {"tags", "[1,"}}) {
+            var req = get(url).header("api-key", key);
+            for (int i = 0; i < q.length; i += 2) req.param(q[i], q[i + 1]);
+            mvc.perform(req)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("invalid_parameter"))
+                    .andExpect(jsonPath("$.message").isNotEmpty());
+        }
+    }
+
+    private static String today() {
+        return LocalDate.now(ZoneOffset.UTC).toString();
     }
 
     private String sendEmail(String key, String to, String tagsJson) throws Exception {
