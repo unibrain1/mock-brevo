@@ -2,6 +2,9 @@
   "name": "mock-brevo-tooling",
   "private": true,
   "description": "Lint and browser-test tooling for the static admin UI and docs. Not needed to build or run mock-brevo.",
+  "engines": {
+    "node": "^22.13 || >=24"
+  },
   "scripts": {
     "lint": "npm run lint:js && npm run lint:html && npm run lint:css && npm run lint:md",
     "lint:js": "eslint",
@@ -19,5 +22,9 @@
     "markdownlint-cli2": "^0.23.3",
     "stylelint": "^17.15.0",
     "stylelint-config-recommended": "^18.0.0"
+  },
+  "overrides": {
+    "katex": "^0.18.2",
+    "smol-toml": "^1.9.1"
   }
 }

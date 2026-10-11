@@ -8,6 +8,8 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- CI: the Docker actions move to their Node 24 releases (`setup-qemu-action@v4`, `setup-buildx-action@v4`, `login-action@v4`, `build-push-action@v7`), with `dockerhub-description@v5` and `checkout@v7` in `release.yml`. This removes the "Node.js 20 is deprecated" warning. Lint tooling: npm `overrides` lift `katex` to `^0.18.2` and `smol-toml` to `^1.9.1` (Dependabot alerts that it could not fix, because `markdownlint-cli2` pins the old versions). Neither package is in the image.
+
 ## [1.3.0] — 2026-10-11
 
 Fork release, based on upstream 1.0.0. Sent emails show their tags in the log, the admin route and the admin UI.
