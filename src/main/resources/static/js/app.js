@@ -279,13 +279,43 @@
     return haystacks.some(h => String(h || '').toLowerCase().includes(q));
   };
 
+  // apiKey of the account whose "⋯" menu is open. The poll waits while a menu is open.
+  let openMenu = null;
+
+  const closeMenu = () => {
+    openMenu = null;
+    document.querySelectorAll('details.row-menu[open]').forEach(m => { m.open = false; });
+  };
+
+  const deleteAccount = async (apiKey) => {
+    closeMenu();
+    if (!confirm(t('accounts.deleteConfirm', { key: apiKey }))) return;
+    try {
+      const resp = await fetch('/mock-status/accounts/' + encodeURIComponent(apiKey), { method: 'DELETE' });
+      if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+      const d = (await resp.json()).deleted || {};
+      accountDrilldown.delete(apiKey);
+      const summary = ['sentEmails', 'contacts', 'lists', 'campaigns', 'templates']
+        .map(k => `${k}:${d[k] ?? 0}`).join(' · ');
+      await refresh();
+      setHealth(true, t('health.deleted', { summary }));
+    } catch (err) {
+      setHealth(false, t('health.deleteError', { msg: err.message }));
+    }
+  };
+
   // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'emails' | 'campaigns' | 'lists' | 'blocked' | null)
   const accountDrilldown = new Map();
   // The poll rebuilds the drill-down every 2s, so the open email rows are kept here (email ids).
   const openEmails = new Set();
+  // Scroll position of each open "Received request" box, restored after the rebuild.
+  const emailScroll = new Map();
 
   const renderAccounts = (data) => {
     const tbody = $('#accountsBody');
+    tbody.querySelectorAll('tr.detail[data-detail-for] pre.email-payload').forEach(pre => {
+      emailScroll.set(pre.closest('tr.detail').dataset.detailFor, pre.scrollTop);
+    });
     const rows = (data.accounts || []).filter(a =>
       matchesFilter([a.apiKey, a.apiKeyPreview, a.account?.email]));
     if (!rows.length) {
@@ -321,7 +351,13 @@
         : `<code>${esc(a.apiKeyPreview)}</code> <span class="muted">${esc(t('common.masked'))}</span>`;
       const acct = a.account || {};
       const actions = a.apiKey
-        ? `<button class="btn-action" data-new-campaign-for="${apiKeyAttr}" title="${esc(t('accounts.newCampaignTitle'))}">${esc(t('accounts.newCampaign'))}</button>`
+        ? `<details class="row-menu" data-menu-for="${apiKeyAttr}"${openMenu === a.apiKey ? ' open' : ''}>
+            <summary class="btn-action" title="${esc(t('accounts.menuTitle'))}" aria-label="${esc(t('accounts.menuTitle'))}">⋯</summary>
+            <div class="row-menu-items">
+              <button type="button" class="menu-item" data-new-campaign-for="${apiKeyAttr}">${esc(t('accounts.menu.newCampaign'))}</button>
+              <button type="button" class="menu-item danger" data-delete-key="${apiKeyAttr}">${esc(t('accounts.menu.deleteKey'))}</button>
+            </div>
+          </details>`
         : `<span class="muted">${esc(t('common.maskedKey'))}</span>`;
       const drill = a.apiKey ? accountDrilldown.get(a.apiKey) : null;
       const drillRow = drill
@@ -346,7 +382,27 @@
     }).join('');
 
     tbody.querySelectorAll('[data-new-campaign-for]').forEach(btn => {
-      btn.addEventListener('click', () => openCampaignModal(btn.dataset.newCampaignFor));
+      btn.addEventListener('click', () => {
+        closeMenu();
+        openCampaignModal(btn.dataset.newCampaignFor);
+      });
+    });
+
+    tbody.querySelectorAll('[data-delete-key]').forEach(btn => {
+      btn.addEventListener('click', () => deleteAccount(btn.dataset.deleteKey));
+    });
+
+    tbody.querySelectorAll('details.row-menu').forEach(menu => {
+      menu.addEventListener('toggle', () => {
+        if (menu.open) {
+          openMenu = menu.dataset.menuFor;
+          tbody.querySelectorAll('details.row-menu[open]').forEach(other => {
+            if (other !== menu) other.open = false;
+          });
+        } else if (openMenu === menu.dataset.menuFor) {
+          openMenu = null;
+        }
+      });
     });
 
     tbody.querySelectorAll('.counter-drill').forEach(btn => {
@@ -378,8 +434,14 @@
       const data = await fetchJson(url);
       if (kind === 'emails') {
         container.innerHTML = renderAccountEmails(data);
+        // The emails of this render only, by id. A hidden detail row stays empty until it opens, so
+        // a poll does not format up to 50 payloads. The map goes away with the container.
+        container.emailById = new Map((data.emails || []).map(e => [String(e.id), e]));
         container.querySelectorAll('tr.summary[data-email-id]').forEach(tr => {
           tr.addEventListener('click', () => toggleEmail(tr));
+        });
+        container.querySelectorAll('tr.detail[data-detail-for]:not([hidden]) pre.email-payload').forEach(pre => {
+          pre.scrollTop = emailScroll.get(pre.closest('tr.detail').dataset.detailFor) || 0;
         });
       } else if (kind === 'campaigns') {
         container.innerHTML = renderAccountCampaigns(data);
@@ -397,7 +459,14 @@
     const id = tr.dataset.emailId;
     const detail = tr.nextElementSibling;
     const open = !openEmails.has(id);
+    const email = tr.closest('.drill-wrap')?.emailById?.get(id);
+    // Never show an empty row: without data, wait for the next render.
+    if (open && !detail.dataset.rendered && !email) return;
     if (open) openEmails.add(id); else openEmails.delete(id);
+    if (open && !detail.dataset.rendered) {
+      detail.firstElementChild.innerHTML = renderEmailDetail(email);
+      detail.dataset.rendered = '1';
+    }
     tr.classList.toggle('open', open);
     detail.hidden = !open;
   };
@@ -438,7 +507,7 @@
         </div>
         <div class="block">
           <h4>${esc(t('emails.payload'))}</h4>
-          ${body ? `<pre>${esc(body)}</pre>` : `<div class="empty-body">${esc(t('requests.noBody'))}</div>`}
+          ${body ? `<pre class="email-payload">${esc(body)}</pre>` : `<div class="empty-body">${esc(t('requests.noBody'))}</div>`}
         </div>
       </div>`;
   };
@@ -458,7 +527,7 @@
         <td class="mono muted">${esc(e.recipients || '')}</td>
         <td>${renderTags(e.tags)}</td>
       </tr>
-      <tr class="detail"${open ? '' : ' hidden'}><td colspan="4">${renderEmailDetail(e)}</td></tr>`;
+      <tr class="detail" data-detail-for="${esc(id)}"${open ? ' data-rendered="1"' : ' hidden'}><td colspan="4">${open ? renderEmailDetail(e) : ''}</td></tr>`;
     }).join('');
     return `
       <div class="drill-inner">
@@ -712,6 +781,13 @@
     $('#healthText').textContent = msg;
   };
 
+  // True while the reader has text selected inside el. A rebuild would drop the selection.
+  const selectionInside = (el) => {
+    const sel = window.getSelection();
+    return !!(el && sel && !sel.isCollapsed && sel.rangeCount
+      && el.contains(sel.getRangeAt(0).commonAncestorContainer));
+  };
+
   const refresh = async () => {
     try {
       if (activeTab === 'accounts') {
@@ -751,6 +827,14 @@
       document.body.removeChild(ta);
     }
   };
+
+  // A click outside an open "⋯" menu, or Escape, closes it.
+  document.addEventListener('click', (e) => {
+    if (openMenu && !e.target.closest('details.row-menu')) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openMenu) closeMenu();
+  });
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.copy-btn');
@@ -1018,6 +1102,8 @@
       detailCache.clear();
       openDetails.clear();
       openEmails.clear();
+      emailScroll.clear();
+      openMenu = null;
       accountDrilldown.clear();
       lastRequestsKey = null;
       const d = data.deleted || {};
@@ -1043,7 +1129,12 @@
   const schedule = () => {
     clearInterval(timer);
     if ($('#autoRefresh').checked) {
-      timer = setInterval(refresh, 2000);
+      // Only the poll waits for a selection or an open "⋯" menu (a rebuild would close it).
+      // A refresh that the user starts always runs.
+      timer = setInterval(() => {
+        if (activeTab === 'accounts' && openMenu) return;
+        if (!selectionInside($(activeTab === 'accounts' ? '#accountsBody' : '#requestsBody'))) refresh();
+      }, 2000);
     }
   };
   $('#autoRefresh').addEventListener('change', schedule);

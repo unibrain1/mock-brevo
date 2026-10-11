@@ -7,5 +7,5 @@
     "MD060": false
   },
   "globs": ["**/*.md"],
-  "ignores": ["node_modules/**", "target/**", "HANDOFF.md"]
+  "ignores": ["node_modules/**", "target/**", "test-results/**", "playwright-report/**", "HANDOFF.md"]
 }

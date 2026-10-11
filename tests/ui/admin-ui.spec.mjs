@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// evaluate() callbacks run in the page.
+/* global window, document */
+
 // Each run provisions its own tenant so assertions don't depend on prior data.
 const API_KEY = `ui-test-${Date.now()}`;
 let campaignId;
@@ -128,12 +131,18 @@ test.describe('sent emails', () => {
         to: [{ email: 'tags-ui@example.com' }],
         cc: [{ email: 'cc-ui@example.com' }],
         subject: 'Tag check',
-        htmlContent: '<p>Hi</p>',
+        htmlContent: `<p>${'Hi there. '.repeat(400)}long-line-marker</p>`,
         tags: ['car_verification'],
       },
     });
     expect(sent.status()).toBe(201);
     const { messageId } = await sent.json();
+    // A second email gives the drill-down a detail row that stays hidden.
+    const other = await request.post('/v3/smtp/email', {
+      headers: { 'api-key': API_KEY },
+      data: { sender: { email: 'noreply@example.com' }, to: [{ email: 'other-ui@example.com' }], subject: 'Other mail' },
+    });
+    expect(other.status()).toBe(201);
 
     await page.goto('/');
     await page.locator('#filter').fill(API_KEY);
@@ -149,12 +158,98 @@ test.describe('sent emails', () => {
     await expect(detail).toContainText('cc-ui@example.com');
     await expect(detail.locator('.email-tag')).toHaveText('car_verification');
 
+    // A long line wraps: the box needs no horizontal scroll.
+    const payload = detail.locator('pre.email-payload');
+    await expect(payload).toContainText('long-line-marker');
+    expect(await payload.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    // Also inside the viewport: a cell that grows to the content would pass the check above.
+    expect(await payload.evaluate(el => el.getBoundingClientRect().right <= document.documentElement.clientWidth)).toBe(true);
+
+    // A hidden detail row is empty: the poll formats only the open rows.
+    await expect(drill.locator('tr.detail[hidden]')).toHaveCount(1);
+    await expect(drill.locator('tr.detail[hidden] .detail-inner')).toHaveCount(0);
+
+    // A selection in the open row survives the 2s poll (the row is not rebuilt).
+    await payload.evaluate(el => {
+      el.dataset.marker = 'kept';
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    });
+    await page.waitForTimeout(4500);
+    expect(await page.evaluate(() => ({
+      kept: document.querySelector('pre.email-payload')?.dataset.marker,
+      selected: window.getSelection().toString().includes('long-line-marker'),
+    }))).toEqual({ kept: 'kept', selected: true });
+    await page.evaluate(() => window.getSelection().removeAllRanges());
+
+    // The poll rebuilds the open row and keeps the scroll position of its box.
+    const scrolled = await payload.evaluate(el => { el.scrollTop = 120; return el.scrollTop; });
+    expect(scrolled).toBeGreaterThan(0);
+    await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
+    await expect.poll(() => page.evaluate(() => {
+      const pre = document.querySelector('pre.email-payload');
+      return pre && !pre.dataset.marker ? pre.scrollTop : -1;
+    })).toBe(scrolled);
+
     // The 2s poll rebuilds the drill-down. The open row must stay open.
     await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
     await expect(drill.locator('tr.detail:visible')).toContainText(messageId);
 
     await page.locator('#langToggle').click();
     await expect(page.locator('.drill-wrap[data-kind="emails"]')).toContainText('Emails envoyés');
+  });
+});
+
+test.describe('account menu', () => {
+  test.use({ locale: 'en-US' });
+
+  test('the ⋯ menu opens a campaign form and deletes one key', async ({ page, request }) => {
+    const key = `ui-delete-${Date.now()}`;
+    const kept = `ui-kept-${Date.now()}`;
+    for (const k of [key, kept]) {
+      expect((await request.get('/v3/account', { headers: { 'api-key': k } })).ok()).toBeTruthy();
+    }
+
+    await page.goto('/');
+    await page.locator('#filter').fill('ui-');
+    const row = page.locator('#accountsBody tr', { hasText: key });
+    const menu = row.locator(`details.row-menu[data-menu-for="${key}"]`);
+
+    await menu.locator('summary').click();
+    await expect(menu.locator('.menu-item')).toHaveText(['New campaign…', 'Delete this key…']);
+    // The poll does not close an open menu.
+    await page.waitForTimeout(2500);
+    await expect(menu).toHaveAttribute('open', '');
+
+    await page.keyboard.press('Escape');
+    await expect(menu).not.toHaveAttribute('open', '');
+    await menu.locator('summary').click();
+    await menu.locator('[data-new-campaign-for]').click();
+    await expect(page.locator('#campaign-modal')).toHaveClass(/open/);
+    await page.keyboard.press('Escape');
+
+    // Cancel keeps the account.
+    page.once('dialog', d => d.dismiss());
+    await menu.locator('summary').click();
+    await menu.locator('[data-delete-key]').click();
+    await expect(page.locator('#accountsBody')).toContainText(key);
+
+    page.once('dialog', async d => {
+      expect(d.message()).toContain(key);
+      await d.accept();
+    });
+    await menu.locator('summary').click();
+    await menu.locator('[data-delete-key]').click();
+    await expect(page.locator('#accountsBody')).not.toContainText(key);
+    await expect(page.locator('#accountsBody')).toContainText(kept);
+    await expect(page.locator('#healthText')).toContainText('account deleted');
+
+    await page.locator('#langToggle').click();
+    await page.locator(`details.row-menu[data-menu-for="${kept}"] summary`).click();
+    await expect(page.locator(`details.row-menu[data-menu-for="${kept}"] [data-delete-key]`))
+      .toHaveText('Supprimer cette clé…');
   });
 });
 
