@@ -131,7 +131,7 @@ test.describe('sent emails', () => {
         to: [{ email: 'tags-ui@example.com' }],
         cc: [{ email: 'cc-ui@example.com' }],
         subject: 'Tag check',
-        htmlContent: `<p>${'Hi there. '.repeat(80)}long-line-marker</p>`,
+        htmlContent: `<p>${'Hi there. '.repeat(400)}long-line-marker</p>`,
         tags: ['car_verification'],
       },
     });
@@ -183,6 +183,15 @@ test.describe('sent emails', () => {
       selected: window.getSelection().toString().includes('long-line-marker'),
     }))).toEqual({ kept: 'kept', selected: true });
     await page.evaluate(() => window.getSelection().removeAllRanges());
+
+    // The poll rebuilds the open row and keeps the scroll position of its box.
+    const scrolled = await payload.evaluate(el => { el.scrollTop = 120; return el.scrollTop; });
+    expect(scrolled).toBeGreaterThan(0);
+    await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
+    await expect.poll(() => page.evaluate(() => {
+      const pre = document.querySelector('pre.email-payload');
+      return pre && !pre.dataset.marker ? pre.scrollTop : -1;
+    })).toBe(scrolled);
 
     // The 2s poll rebuilds the drill-down. The open row must stay open.
     await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));

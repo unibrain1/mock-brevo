@@ -283,9 +283,6 @@
   const accountDrilldown = new Map();
   // The poll rebuilds the drill-down every 2s, so the open email rows are kept here (email ids).
   const openEmails = new Set();
-  // Last polled emails by id. A hidden detail row stays empty until it opens, so a poll does
-  // not format up to 50 payloads (attachments included) that nobody looks at.
-  const emailById = new Map();
   // Scroll position of each open "Received request" box, restored after the rebuild.
   const emailScroll = new Map();
 
@@ -386,6 +383,9 @@
       const data = await fetchJson(url);
       if (kind === 'emails') {
         container.innerHTML = renderAccountEmails(data);
+        // The emails of this render only, by id. A hidden detail row stays empty until it opens, so
+        // a poll does not format up to 50 payloads. The map goes away with the container.
+        container.emailById = new Map((data.emails || []).map(e => [String(e.id), e]));
         container.querySelectorAll('tr.summary[data-email-id]').forEach(tr => {
           tr.addEventListener('click', () => toggleEmail(tr));
         });
@@ -408,9 +408,12 @@
     const id = tr.dataset.emailId;
     const detail = tr.nextElementSibling;
     const open = !openEmails.has(id);
+    const email = tr.closest('.drill-wrap')?.emailById?.get(id);
+    // Never show an empty row: without data, wait for the next render.
+    if (open && !detail.dataset.rendered && !email) return;
     if (open) openEmails.add(id); else openEmails.delete(id);
-    if (open && !detail.dataset.rendered && emailById.has(id)) {
-      detail.firstElementChild.innerHTML = renderEmailDetail(emailById.get(id));
+    if (open && !detail.dataset.rendered) {
+      detail.firstElementChild.innerHTML = renderEmailDetail(email);
       detail.dataset.rendered = '1';
     }
     tr.classList.toggle('open', open);
@@ -466,7 +469,6 @@
     const rows = items.map(e => {
       const id = String(e.id);
       const open = openEmails.has(id);
-      emailById.set(id, e);
       return `
       <tr class="summary${open ? ' open' : ''}" data-email-id="${esc(id)}">
         <td class="mono muted" title="${esc(e.sentAt)}">${fmtRelative(e.sentAt)}</td>
@@ -736,8 +738,6 @@
   };
 
   const refresh = async () => {
-    // Skip this poll while text is selected in the table; the next poll after the selection ends updates it.
-    if (selectionInside($(activeTab === 'accounts' ? '#accountsBody' : '#requestsBody'))) return;
     try {
       if (activeTab === 'accounts') {
         const d = await fetchJson('/mock-status');
@@ -1043,7 +1043,6 @@
       detailCache.clear();
       openDetails.clear();
       openEmails.clear();
-      emailById.clear();
       emailScroll.clear();
       accountDrilldown.clear();
       lastRequestsKey = null;
@@ -1070,7 +1069,10 @@
   const schedule = () => {
     clearInterval(timer);
     if ($('#autoRefresh').checked) {
-      timer = setInterval(refresh, 2000);
+      // Only the poll waits for a selection. A refresh that the user starts always runs.
+      timer = setInterval(() => {
+        if (!selectionInside($(activeTab === 'accounts' ? '#accountsBody' : '#requestsBody'))) refresh();
+      }, 2000);
     }
   };
   $('#autoRefresh').addEventListener('change', schedule);
