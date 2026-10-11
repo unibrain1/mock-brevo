@@ -8,6 +8,10 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-11
+
+Fork release, based on upstream 1.0.0. Sent emails show their tags in the log, the admin route and the admin UI.
+
 - Sent emails are easier to check (#36). Each `POST /v3/smtp/email` writes one INFO log line with `messageId`, sender, `to`/`cc`/`bcc`, subject, `templateId` and `tags`. The line does not hold the body, attachments, `params`, `headers` or the api-key. Set `MOCK_LOG_SENDS=false` to turn it off. `GET /mock-status/accounts/{apiKey}/emails` returns a `tags` array for each email. In the admin UI, the `emailsSent` counter opens a list of sent emails with their tags. A click on a row shows its detail and the received request.
 
 ## [1.2.0] — 2026-09-28
