@@ -128,7 +128,7 @@ test.describe('sent emails', () => {
         to: [{ email: 'tags-ui@example.com' }],
         cc: [{ email: 'cc-ui@example.com' }],
         subject: 'Tag check',
-        htmlContent: '<p>Hi</p>',
+        htmlContent: `<p>${'Hi there. '.repeat(80)}long-line-marker</p>`,
         tags: ['car_verification'],
       },
     });
@@ -148,6 +148,11 @@ test.describe('sent emails', () => {
     await expect(detail).toContainText(messageId);
     await expect(detail).toContainText('cc-ui@example.com');
     await expect(detail.locator('.email-tag')).toHaveText('car_verification');
+
+    // A long line wraps: the box needs no horizontal scroll.
+    const payload = detail.locator('pre.email-payload');
+    await expect(payload).toContainText('long-line-marker');
+    expect(await payload.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 
     // The 2s poll rebuilds the drill-down. The open row must stay open.
     await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
