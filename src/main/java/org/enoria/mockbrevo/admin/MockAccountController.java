@@ -72,7 +72,8 @@ public class MockAccountController {
         }
         // Locked, so block and unblock for this key wait. Any other concurrent write with this key
         // (a send, an import) makes the final account delete fail on a foreign key, and the whole
-        // transaction rolls back: nothing is deleted.
+        // transaction rolls back: nothing is deleted. A request that resolved the account before
+        // this commit and writes after it gets a 500 (foreign key). The next request provisions anew.
         Account account = accounts.lockById(found.getId()).orElseThrow();
 
         Map<String, Object> deleted = new LinkedHashMap<>();

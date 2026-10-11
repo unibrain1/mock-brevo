@@ -11,7 +11,10 @@ public interface SenderRepository extends JpaRepository<Sender, Long> {
 
     long countByAccount(Account account);
 
-    /** Bulk delete: no row is loaded. flushAutomatically writes pending contact removals first. */
+    /**
+     * Bulk delete: no row is loaded. Runs after {@code ContactRepository.deleteByAccount}:
+     * flushAutomatically writes its pending contact removals (and contact_in_list rows) first.
+     */
     @Modifying(flushAutomatically = true)
     @Query("delete from Sender e where e.account = :account")
     int deleteByAccount(@Param("account") Account account);

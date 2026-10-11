@@ -14,7 +14,7 @@ public interface BlockedContactRepository extends JpaRepository<BlockedContact, 
 
     long countByAccount(Account account);
 
-    /** Bulk delete: no row is loaded. flushAutomatically writes pending contact removals first. */
+    /** Bulk delete: no row is loaded. */
     @Modifying(flushAutomatically = true)
     @Query("delete from BlockedContact e where e.account = :account")
     int deleteByAccount(@Param("account") Account account);

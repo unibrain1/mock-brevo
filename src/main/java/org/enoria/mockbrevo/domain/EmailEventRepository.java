@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 public interface EmailEventRepository extends JpaRepository<EmailEvent, Long> {
     long countByAccount(Account account);
 
-    /** Bulk delete: no row is loaded. flushAutomatically writes pending contact removals first. */
+    /** Bulk delete: no row is loaded. */
     @Modifying(flushAutomatically = true)
     @Query("delete from EmailEvent e where e.account = :account")
     int deleteByAccount(@Param("account") Account account);
