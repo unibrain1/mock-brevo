@@ -223,6 +223,9 @@ test.describe('account menu', () => {
     await page.waitForTimeout(2500);
     await expect(menu).toHaveAttribute('open', '');
 
+    await page.keyboard.press('Escape');
+    await expect(menu).not.toHaveAttribute('open', '');
+    await menu.locator('summary').click();
     await menu.locator('[data-new-campaign-for]').click();
     await expect(page.locator('#campaign-modal')).toHaveClass(/open/);
     await page.keyboard.press('Escape');

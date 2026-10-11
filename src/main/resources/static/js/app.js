@@ -828,9 +828,12 @@
     }
   };
 
-  // A click outside an open "⋯" menu closes it.
+  // A click outside an open "⋯" menu, or Escape, closes it.
   document.addEventListener('click', (e) => {
     if (openMenu && !e.target.closest('details.row-menu')) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openMenu) closeMenu();
   });
 
   document.addEventListener('click', (e) => {

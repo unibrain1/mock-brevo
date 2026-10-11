@@ -70,7 +70,9 @@ public class MockAccountController {
         if (found == null) {
             return ResponseEntity.notFound().build();
         }
-        // Locked, so a concurrent request with this key cannot add a row while its parents go.
+        // Locked, so block and unblock for this key wait. Any other concurrent write with this key
+        // (a send, an import) makes the final account delete fail on a foreign key, and the whole
+        // transaction rolls back: nothing is deleted.
         Account account = accounts.lockById(found.getId()).orElseThrow();
 
         Map<String, Object> deleted = new LinkedHashMap<>();
