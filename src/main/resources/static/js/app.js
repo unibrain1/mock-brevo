@@ -438,7 +438,7 @@
         </div>
         <div class="block">
           <h4>${esc(t('emails.payload'))}</h4>
-          ${body ? `<pre>${esc(body)}</pre>` : `<div class="empty-body">${esc(t('requests.noBody'))}</div>`}
+          ${body ? `<pre class="email-payload">${esc(body)}</pre>` : `<div class="empty-body">${esc(t('requests.noBody'))}</div>`}
         </div>
       </div>`;
   };

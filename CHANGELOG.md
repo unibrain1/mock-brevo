@@ -8,6 +8,8 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- Admin UI: the "Received request" box in the email detail row wraps long lines, such as `htmlContent`, and keeps the JSON indentation (#43).
+
 - CI: the Docker actions move to their Node 24 releases (`setup-qemu-action@v4`, `setup-buildx-action@v4`, `login-action@v4`, `build-push-action@v7`), with `dockerhub-description@v5` and `checkout@v7` in `release.yml`. This removes the "Node.js 20 is deprecated" warning. Lint tooling: npm `overrides` lift `katex` to `^0.18.2` and `smol-toml` to `^1.9.1` (Dependabot alerts that it could not fix, because `markdownlint-cli2` pins the old versions). Neither package is in the image.
 
 ## [1.3.0] — 2026-10-11

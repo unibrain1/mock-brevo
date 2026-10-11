@@ -191,6 +191,11 @@ tr.detail pre {
   font-family: var(--mono);
   white-space: pre;
 }
+/* A long JSON string (htmlContent) is one line. Wrap it; pre-wrap keeps the indentation. */
+tr.detail pre.email-payload {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 tr.detail .monaco-body {
   width: 100%;
   height: 360px;
