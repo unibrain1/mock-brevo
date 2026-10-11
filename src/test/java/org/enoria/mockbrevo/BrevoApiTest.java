@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -190,7 +191,7 @@ class BrevoApiTest {
                   "sender": {"email": "noreply@example.com"},
                   "to": [{"email": "to-36@example.com"}],
                   "cc": [{"email": "cc-36@example.com"}],
-                  "subject": "Line one\\r\\nINFO forged line",
+                  "subject": "Line one\\r\\nINFO forged\\u2028line\\u0085two",
                   "htmlContent": "<p>html-body-marker</p>",
                   "params": {"secret": "params-marker"},
                   "tags": ["car_verification", "tag-two"]
@@ -205,10 +206,10 @@ class BrevoApiTest {
                 .findFirst().orElseThrow(() -> new AssertionError("no send log line for " + messageId));
         assertTrue(line.contains("tags=[car_verification, tag-two]"), line);
         assertTrue(line.contains("to=[to-36@example.com] cc=[cc-36@example.com] bcc=[]"), line);
-        assertTrue(line.contains("subject=\"Line one  INFO forged line\""), line);
-        assertTrue(!output.getOut().contains("html-body-marker"), "htmlContent was logged");
-        assertTrue(!output.getOut().contains("params-marker"), "params were logged");
-        assertTrue(!output.getOut().contains(key), "api-key was logged");
+        assertTrue(line.contains("subject=\"Line one  INFO forged line two\""), line);
+        assertFalse(output.getOut().contains("html-body-marker"), "htmlContent was logged");
+        assertFalse(output.getOut().contains("params-marker"), "params were logged");
+        assertFalse(output.getOut().contains(key), "api-key was logged");
 
         mvc.perform(get("/mock-status/accounts/" + key + "/emails"))
                 .andExpect(jsonPath("$.emails[0].tags[0]").value("car_verification"))

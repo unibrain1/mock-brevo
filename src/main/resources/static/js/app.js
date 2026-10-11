@@ -1017,6 +1017,7 @@
       const data = await resp.json();
       detailCache.clear();
       openDetails.clear();
+      openEmails.clear();
       accountDrilldown.clear();
       lastRequestsKey = null;
       const d = data.deleted || {};

@@ -1,10 +1,10 @@
 package org.enoria.mockbrevo.admin;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.enoria.mockbrevo.brevo.dto.SendSmtpEmailRequest;
 import org.enoria.mockbrevo.config.MockBrevoProperties;
 import org.enoria.mockbrevo.domain.Account;
 import org.enoria.mockbrevo.domain.AccountRepository;
@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @RestController
@@ -354,12 +355,18 @@ public class MockStatusController {
         return m;
     }
 
-    /** The send's tags, read from the stored payload. A script then needs no second JSON parse. */
+    /**
+     * The send's tags, read from the stored payload. A script then needs no second JSON parse.
+     * A tree read, not the request record: the UI polls this route, and a payload can hold attachments.
+     */
     private List<String> tags(String payloadJson) {
         if (payloadJson == null) return List.of();
         try {
-            List<String> tags = objectMapper.readValue(payloadJson, SendSmtpEmailRequest.class).tags();
-            return tags != null ? tags : List.of();
+            List<String> tags = new ArrayList<>();
+            for (JsonNode tag : objectMapper.readTree(payloadJson).path("tags")) {
+                if (tag.isString()) tags.add(tag.asString());
+            }
+            return tags;
         } catch (JacksonException ex) {
             return List.of();
         }

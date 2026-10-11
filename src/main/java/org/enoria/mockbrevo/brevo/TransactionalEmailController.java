@@ -147,9 +147,12 @@ public class TransactionalEmailController {
         return list.stream().filter(Objects::nonNull).map(a -> clean(a.email())).toList();
     }
 
-    /** Client values must not start a new log line (CR/LF) or carry other control characters. */
+    /**
+     * Client values must not start a new log line. {@code \p{Cntrl}} is ASCII only, so NEL,
+     * LINE SEPARATOR and PARAGRAPH SEPARATOR (line breaks in some log viewers) are listed too.
+     */
     static String clean(String value) {
-        return value == null ? null : value.replaceAll("\\p{Cntrl}", " ");
+        return value == null ? null : value.replaceAll("[\\p{Cntrl}\\u0085\\u2028\\u2029]", " ");
     }
 
     private static List<SendSmtpEmailRequest.EmailAddress> allRecipients(SendSmtpEmailRequest request) {
