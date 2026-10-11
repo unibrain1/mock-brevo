@@ -283,9 +283,14 @@
   const accountDrilldown = new Map();
   // The poll rebuilds the drill-down every 2s, so the open email rows are kept here (email ids).
   const openEmails = new Set();
+  // Scroll position of each open "Received request" box, restored after the rebuild.
+  const emailScroll = new Map();
 
   const renderAccounts = (data) => {
     const tbody = $('#accountsBody');
+    tbody.querySelectorAll('tr.detail[data-detail-for] pre.email-payload').forEach(pre => {
+      emailScroll.set(pre.closest('tr.detail').dataset.detailFor, pre.scrollTop);
+    });
     const rows = (data.accounts || []).filter(a =>
       matchesFilter([a.apiKey, a.apiKeyPreview, a.account?.email]));
     if (!rows.length) {
@@ -378,8 +383,14 @@
       const data = await fetchJson(url);
       if (kind === 'emails') {
         container.innerHTML = renderAccountEmails(data);
+        // The emails of this render only, by id. A hidden detail row stays empty until it opens, so
+        // a poll does not format up to 50 payloads. The map goes away with the container.
+        container.emailById = new Map((data.emails || []).map(e => [String(e.id), e]));
         container.querySelectorAll('tr.summary[data-email-id]').forEach(tr => {
           tr.addEventListener('click', () => toggleEmail(tr));
+        });
+        container.querySelectorAll('tr.detail[data-detail-for]:not([hidden]) pre.email-payload').forEach(pre => {
+          pre.scrollTop = emailScroll.get(pre.closest('tr.detail').dataset.detailFor) || 0;
         });
       } else if (kind === 'campaigns') {
         container.innerHTML = renderAccountCampaigns(data);
@@ -397,7 +408,14 @@
     const id = tr.dataset.emailId;
     const detail = tr.nextElementSibling;
     const open = !openEmails.has(id);
+    const email = tr.closest('.drill-wrap')?.emailById?.get(id);
+    // Never show an empty row: without data, wait for the next render.
+    if (open && !detail.dataset.rendered && !email) return;
     if (open) openEmails.add(id); else openEmails.delete(id);
+    if (open && !detail.dataset.rendered) {
+      detail.firstElementChild.innerHTML = renderEmailDetail(email);
+      detail.dataset.rendered = '1';
+    }
     tr.classList.toggle('open', open);
     detail.hidden = !open;
   };
@@ -458,7 +476,7 @@
         <td class="mono muted">${esc(e.recipients || '')}</td>
         <td>${renderTags(e.tags)}</td>
       </tr>
-      <tr class="detail"${open ? '' : ' hidden'}><td colspan="4">${renderEmailDetail(e)}</td></tr>`;
+      <tr class="detail" data-detail-for="${esc(id)}"${open ? ' data-rendered="1"' : ' hidden'}><td colspan="4">${open ? renderEmailDetail(e) : ''}</td></tr>`;
     }).join('');
     return `
       <div class="drill-inner">
@@ -710,6 +728,13 @@
   const setHealth = (ok, msg) => {
     $('#healthDot').classList.toggle('stale', !ok);
     $('#healthText').textContent = msg;
+  };
+
+  // True while the reader has text selected inside el. A rebuild would drop the selection.
+  const selectionInside = (el) => {
+    const sel = window.getSelection();
+    return !!(el && sel && !sel.isCollapsed && sel.rangeCount
+      && el.contains(sel.getRangeAt(0).commonAncestorContainer));
   };
 
   const refresh = async () => {
@@ -1018,6 +1043,7 @@
       detailCache.clear();
       openDetails.clear();
       openEmails.clear();
+      emailScroll.clear();
       accountDrilldown.clear();
       lastRequestsKey = null;
       const d = data.deleted || {};
@@ -1043,7 +1069,10 @@
   const schedule = () => {
     clearInterval(timer);
     if ($('#autoRefresh').checked) {
-      timer = setInterval(refresh, 2000);
+      // Only the poll waits for a selection. A refresh that the user starts always runs.
+      timer = setInterval(() => {
+        if (!selectionInside($(activeTab === 'accounts' ? '#accountsBody' : '#requestsBody'))) refresh();
+      }, 2000);
     }
   };
   $('#autoRefresh').addEventListener('change', schedule);
