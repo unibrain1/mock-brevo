@@ -279,8 +279,10 @@
     return haystacks.some(h => String(h || '').toLowerCase().includes(q));
   };
 
-  // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'campaigns' | 'lists' | 'blocked' | null)
+  // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'emails' | 'campaigns' | 'lists' | 'blocked' | null)
   const accountDrilldown = new Map();
+  // The poll rebuilds the drill-down every 2s, so the open email rows are kept here (email ids).
+  const openEmails = new Set();
 
   const renderAccounts = (data) => {
     const tbody = $('#accountsBody');
@@ -294,7 +296,7 @@
       const c = a.counters || {};
       const apiKeyAttr = a.apiKey ? esc(a.apiKey) : '';
       const counterItems = [
-        { k: 'emailsSent', label: 'emailsSent' },
+        { k: 'emailsSent', label: 'emailsSent', drill: 'emails' },
         { k: 'contacts',   label: 'contacts' },
         { k: 'lists',      label: 'lists',     drill: 'lists' },
         { k: 'campaigns',  label: 'campaigns', drill: 'campaigns' },
@@ -374,7 +376,12 @@
     const url = '/mock-status/accounts/' + encodeURIComponent(apiKey) + '/' + kind;
     try {
       const data = await fetchJson(url);
-      if (kind === 'campaigns') {
+      if (kind === 'emails') {
+        container.innerHTML = renderAccountEmails(data);
+        container.querySelectorAll('tr.summary[data-email-id]').forEach(tr => {
+          tr.addEventListener('click', () => toggleEmail(tr));
+        });
+      } else if (kind === 'campaigns') {
         container.innerHTML = renderAccountCampaigns(data);
       } else if (kind === 'lists') {
         container.innerHTML = renderAccountLists(data);
@@ -384,6 +391,85 @@
     } catch (e) {
       container.innerHTML = `<div class="muted" style="padding:12px;color:var(--err)">${esc(t('common.errorPrefix', { msg: e.message }))}</div>`;
     }
+  };
+
+  const toggleEmail = (tr) => {
+    const id = tr.dataset.emailId;
+    const detail = tr.nextElementSibling;
+    const open = !openEmails.has(id);
+    if (open) openEmails.add(id); else openEmails.delete(id);
+    tr.classList.toggle('open', open);
+    detail.hidden = !open;
+  };
+
+  const renderTags = (tags) => (tags && tags.length)
+    ? tags.map(tag => `<span class="badge email-tag">${esc(tag)}</span>`).join(' ')
+    : '<span class="muted">—</span>';
+
+  // A payload that is not JSON returns null. The detail then shows the raw text.
+  const parseJson = (text) => {
+    if (!text) return null;
+    try { return JSON.parse(text); } catch (err) { return null; }
+  };
+
+  const renderEmailDetail = (e) => {
+    const payload = parseJson(e.payload);
+    const list = (arr) => (arr || []).map(a => a?.email).filter(Boolean).join(', ');
+    const fields = [
+      ['messageId', e.messageId],
+      ['sender', [e.senderName, e.senderEmail].filter(Boolean).join(' ')],
+      ['replyTo', e.replyTo],
+      ['to', e.recipients],
+      ['cc', list(payload?.cc)],
+      ['bcc', list(payload?.bcc)],
+      ['templateId', e.templateId],
+      ['sent', e.sentAt],
+    ];
+    const rows = fields.map(([k, v]) =>
+      `<div class="hk">${esc(t('emails.field.' + k))}</div><div class="hv">${esc(v == null || v === '' ? '—' : v)}</div>`).join('');
+    const body = payload ? JSON.stringify(payload, null, 2) : (e.payload || '');
+    return `
+      <div class="detail-inner">
+        <div class="block">
+          <h4>${esc(t('emails.col.tags'))}</h4>
+          <div class="email-tags">${renderTags(e.tags)}</div>
+          <h4>${esc(t('emails.details'))}</h4>
+          <div class="headers">${rows}</div>
+        </div>
+        <div class="block">
+          <h4>${esc(t('emails.payload'))}</h4>
+          ${body ? `<pre>${esc(body)}</pre>` : `<div class="empty-body">${esc(t('requests.noBody'))}</div>`}
+        </div>
+      </div>`;
+  };
+
+  const renderAccountEmails = (data) => {
+    const items = data.emails || [];
+    if (!items.length) {
+      return `<div class="empty" style="padding:16px">${esc(t('emails.none'))}</div>`;
+    }
+    const rows = items.map(e => {
+      const id = String(e.id);
+      const open = openEmails.has(id);
+      return `
+      <tr class="summary${open ? ' open' : ''}" data-email-id="${esc(id)}">
+        <td class="mono muted" title="${esc(e.sentAt)}">${fmtRelative(e.sentAt)}</td>
+        <td>${esc(e.subject || '')}</td>
+        <td class="mono muted">${esc(e.recipients || '')}</td>
+        <td>${renderTags(e.tags)}</td>
+      </tr>
+      <tr class="detail"${open ? '' : ' hidden'}><td colspan="4">${renderEmailDetail(e)}</td></tr>`;
+    }).join('');
+    return `
+      <div class="drill-inner">
+        <div class="drill-title">${esc(t('emails.title', { n: data.count, shown: items.length }))}</div>
+        <table>
+          <thead>
+            <tr>${['sent', 'subject', 'to', 'tags'].map(k => `<th>${esc(t('emails.col.' + k))}</th>`).join('')}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   };
 
   const renderAccountCampaigns = (data) => {

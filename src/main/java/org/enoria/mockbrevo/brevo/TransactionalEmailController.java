@@ -16,6 +16,8 @@ import org.enoria.mockbrevo.domain.SentEmailRepository;
 import org.enoria.mockbrevo.events.EmailEventService;
 import org.enoria.mockbrevo.smtp.SmtpForwarder;
 import org.enoria.mockbrevo.webhook.WebhookService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,8 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/v3/smtp/email")
 public class TransactionalEmailController {
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionalEmailController.class);
 
     private final SentEmailRepository sentEmails;
     private final ObjectMapper objectMapper;
@@ -96,6 +100,8 @@ public class TransactionalEmailController {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                // After the commit, so a rolled-back send is not logged as sent.
+                if (properties.isLogSends()) logSend(request, messageId);
                 smtpForwarder.forward(request, messageId, emailId);
             }
         });
@@ -119,6 +125,31 @@ public class TransactionalEmailController {
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new SendSmtpEmailResponse(messageId));
+    }
+
+    /**
+     * One line per send, so a developer can check tags in the container log. It leaves
+     * out the body, attachments, params and headers: they can be large or hold secrets.
+     */
+    private static void logSend(SendSmtpEmailRequest request, String messageId) {
+        log.info("Email sent: messageId={} sender={} to={} cc={} bcc={} subject=\"{}\" templateId={} tags={}",
+                messageId,
+                request.sender() != null ? clean(request.sender().email()) : null,
+                addresses(request.to()), addresses(request.cc()), addresses(request.bcc()),
+                clean(request.subject()),
+                request.templateId(),
+                request.tags() == null ? List.of()
+                        : request.tags().stream().map(TransactionalEmailController::clean).toList());
+    }
+
+    private static List<String> addresses(List<SendSmtpEmailRequest.EmailAddress> list) {
+        if (list == null) return List.of();
+        return list.stream().filter(Objects::nonNull).map(a -> clean(a.email())).toList();
+    }
+
+    /** Client values must not start a new log line (CR/LF) or carry other control characters. */
+    static String clean(String value) {
+        return value == null ? null : value.replaceAll("\\p{Cntrl}", " ");
     }
 
     private static List<SendSmtpEmailRequest.EmailAddress> allRecipients(SendSmtpEmailRequest request) {

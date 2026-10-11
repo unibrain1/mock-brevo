@@ -35,8 +35,11 @@ import org.enoria.mockbrevo.domain.Account;
 import org.enoria.mockbrevo.domain.AccountRepository;
 import org.enoria.mockbrevo.domain.EmailEventRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -56,6 +59,7 @@ import tools.jackson.databind.ObjectMapper;
         "mock-brevo.webhook-token=default-token"
 })
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 class BrevoApiTest {
 
     @Autowired
@@ -176,6 +180,39 @@ class BrevoApiTest {
 
         mvc.perform(get("/mock-status/accounts/" + other + "/emails"))
                 .andExpect(jsonPath("$.count").value(0));
+    }
+
+    @Test
+    void sendIsLoggedWithItsTagsAndWithoutTheBody(CapturedOutput output) throws Exception {
+        String key = newKey();
+        String body = """
+                {
+                  "sender": {"email": "noreply@example.com"},
+                  "to": [{"email": "to-36@example.com"}],
+                  "cc": [{"email": "cc-36@example.com"}],
+                  "subject": "Line one\\r\\nINFO forged line",
+                  "htmlContent": "<p>html-body-marker</p>",
+                  "params": {"secret": "params-marker"},
+                  "tags": ["car_verification", "tag-two"]
+                }""";
+        String messageId = json.readTree(mvc.perform(post("/v3/smtp/email").header("api-key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString()).get("messageId").asString();
+
+        String line = output.getOut().lines()
+                .filter(l -> l.contains("Email sent: messageId=" + messageId))
+                .findFirst().orElseThrow(() -> new AssertionError("no send log line for " + messageId));
+        assertTrue(line.contains("tags=[car_verification, tag-two]"), line);
+        assertTrue(line.contains("to=[to-36@example.com] cc=[cc-36@example.com] bcc=[]"), line);
+        assertTrue(line.contains("subject=\"Line one  INFO forged line\""), line);
+        assertTrue(!output.getOut().contains("html-body-marker"), "htmlContent was logged");
+        assertTrue(!output.getOut().contains("params-marker"), "params were logged");
+        assertTrue(!output.getOut().contains(key), "api-key was logged");
+
+        mvc.perform(get("/mock-status/accounts/" + key + "/emails"))
+                .andExpect(jsonPath("$.emails[0].tags[0]").value("car_verification"))
+                .andExpect(jsonPath("$.emails[0].tags[1]").value("tag-two"));
     }
 
     @Test

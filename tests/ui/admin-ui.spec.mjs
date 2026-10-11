@@ -117,6 +117,47 @@ test.describe('block list', () => {
   });
 });
 
+test.describe('sent emails', () => {
+  test.use({ locale: 'en-US' });
+
+  test('emailsSent counter lists the tags and opens a detail row', async ({ page, request }) => {
+    const sent = await request.post('/v3/smtp/email', {
+      headers: { 'api-key': API_KEY },
+      data: {
+        sender: { email: 'noreply@example.com' },
+        to: [{ email: 'tags-ui@example.com' }],
+        cc: [{ email: 'cc-ui@example.com' }],
+        subject: 'Tag check',
+        htmlContent: '<p>Hi</p>',
+        tags: ['car_verification'],
+      },
+    });
+    expect(sent.status()).toBe(201);
+    const { messageId } = await sent.json();
+
+    await page.goto('/');
+    await page.locator('#filter').fill(API_KEY);
+    await page.locator(`.counter-drill[data-drill="emails"][data-api-key="${API_KEY}"]`).click();
+    const drill = page.locator('.drill-wrap[data-kind="emails"]');
+    const row = drill.locator('tr.summary', { hasText: 'Tag check' });
+    await expect(row).toContainText('tags-ui@example.com');
+    await expect(row.locator('.email-tag')).toHaveText('car_verification');
+
+    await row.click();
+    const detail = drill.locator('tr.detail:visible');
+    await expect(detail).toContainText(messageId);
+    await expect(detail).toContainText('cc-ui@example.com');
+    await expect(detail.locator('.email-tag')).toHaveText('car_verification');
+
+    // The 2s poll rebuilds the drill-down. The open row must stay open.
+    await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
+    await expect(drill.locator('tr.detail:visible')).toContainText(messageId);
+
+    await page.locator('#langToggle').click();
+    await expect(page.locator('.drill-wrap[data-kind="emails"]')).toContainText('Emails envoyés');
+  });
+});
+
 test.describe('deep links', () => {
   test.use({ locale: 'en-US' });
 
