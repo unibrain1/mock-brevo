@@ -1,6 +1,7 @@
 package org.enoria.mockbrevo.admin;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/mock-status")
@@ -48,6 +52,7 @@ public class MockStatusController {
     private final CampaignFaker campaignFaker;
     private final BlockedContactRepository blocked;
     private final ObjectProvider<BuildProperties> buildProperties;
+    private final ObjectMapper objectMapper;
 
     public MockStatusController(
             AccountRepository accounts,
@@ -62,7 +67,8 @@ public class MockStatusController {
             RequestLogStore requestLog,
             CampaignFaker campaignFaker,
             BlockedContactRepository blocked,
-            ObjectProvider<BuildProperties> buildProperties) {
+            ObjectProvider<BuildProperties> buildProperties,
+            ObjectMapper objectMapper) {
         this.accounts = accounts;
         this.sentEmails = sentEmails;
         this.contacts = contacts;
@@ -76,6 +82,7 @@ public class MockStatusController {
         this.campaignFaker = campaignFaker;
         this.blocked = blocked;
         this.buildProperties = buildProperties;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/accounts/{apiKey}/campaigns")
@@ -343,8 +350,26 @@ public class MockStatusController {
         m.put("sentAt", e.getSentAt() != null ? e.getSentAt().toString() : Instant.now().toString());
         m.put("smtpForwardedAt", e.getSmtpForwardedAt() != null ? e.getSmtpForwardedAt().toString() : null);
         m.put("smtpForwardError", e.getSmtpForwardError());
+        m.put("tags", tags(e.getPayloadJson()));
         m.put("payload", e.getPayloadJson());
         return m;
+    }
+
+    /**
+     * The send's tags, read from the stored payload. A script then needs no second JSON parse.
+     * A tree read, not the request record: the UI polls this route, and a payload can hold attachments.
+     */
+    private List<String> tags(String payloadJson) {
+        if (payloadJson == null) return List.of();
+        try {
+            List<String> tags = new ArrayList<>();
+            for (JsonNode tag : objectMapper.readTree(payloadJson).path("tags")) {
+                if (tag.isString()) tags.add(tag.asString());
+            }
+            return tags;
+        } catch (JacksonException ex) {
+            return List.of();
+        }
     }
 
     private static String maskKey(String key) {

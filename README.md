@@ -109,6 +109,7 @@ All settings are environment variables, sensible defaults for dev:
 | `MOCK_DEFAULT_WEBHOOK_URL` | — | URL to fire outbound webhooks at |
 | `MOCK_AUTO_FIRE_DELIVERED` | `false` | Auto-fire `delivered` webhook after each `POST /v3/smtp/email` |
 | `MOCK_WEBHOOK_TOKEN` | — | Default bearer token sent as `Authorization: Bearer <token>` on outbound webhooks |
+| `MOCK_LOG_SENDS` | `true` | Log one INFO line per `POST /v3/smtp/email`: `messageId`, sender, `to`/`cc`/`bcc`, subject, `templateId` and `tags`. The line never holds the body, attachments, `params`, `headers` or the api-key |
 | `MOCK_SMTP_ENABLED` | `false` | Relay captured emails to an SMTP server |
 | `MOCK_SMTP_HOST` | `localhost` (dev profile) / `mailcatcher` (Docker) | SMTP host |
 | `MOCK_SMTP_PORT` | `1025` | SMTP port (Mailpit default) |
@@ -159,7 +160,7 @@ Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webho
 | `GET` | `/mock-status/version` | Build version and upstream base (shown in the UI header) |
 | `GET` | `/mock-status/requests` | Last N REST calls (metadata) |
 | `GET` | `/mock-status/requests/{id}` | Full call detail (headers + body) |
-| `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant |
+| `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant, newest first (`offset`, `limit`, default 50). Each item has `tags` and the stored request as `payload` |
 | `POST` | `/mock-status/accounts/{apiKey}/campaigns` | Create a faker campaign |
 | `GET` | `/mock-status/accounts/{apiKey}/blocked` | A tenant's block list |
 | `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`; without `senderEmail`, the account's own address) |
