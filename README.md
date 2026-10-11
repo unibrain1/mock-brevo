@@ -161,6 +161,7 @@ Webhooks go out as HTTP/1.1 with a `Content-Length` and `User-Agent: Brevo-webho
 | `GET` | `/mock-status/requests` | Last N REST calls (metadata) |
 | `GET` | `/mock-status/requests/{id}` | Full call detail (headers + body) |
 | `GET` | `/mock-status/accounts/{apiKey}/emails` | Captured emails for a tenant, newest first (`offset`, `limit`, default 50). Each item has `tags` and the stored request as `payload` |
+| `DELETE` | `/mock-status/accounts/{apiKey}` | Delete one account and all of its data. Returns the deleted counts, or `404`. A later request with the key provisions a new, empty account |
 | `POST` | `/mock-status/accounts/{apiKey}/campaigns` | Create a faker campaign |
 | `GET` | `/mock-status/accounts/{apiKey}/blocked` | A tenant's block list |
 | `POST` | `/mock-status/accounts/{apiKey}/blocked` | Block a contact: `{"email", "senderEmail"?, "reason"?}` (default reason `adminBlocked`; without `senderEmail`, the account's own address) |

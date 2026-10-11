@@ -10,4 +10,6 @@ public interface SmtpTemplateRepository extends JpaRepository<SmtpTemplate, Long
     Page<SmtpTemplate> findByAccountOrderByIdAsc(Account account, Pageable pageable);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

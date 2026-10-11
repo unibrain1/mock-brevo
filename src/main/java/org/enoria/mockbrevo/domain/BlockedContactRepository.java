@@ -10,4 +10,6 @@ public interface BlockedContactRepository extends JpaRepository<BlockedContact, 
     Optional<BlockedContact> findByAccountAndEmailIgnoreCase(Account account, String email);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

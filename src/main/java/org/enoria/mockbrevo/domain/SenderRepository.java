@@ -7,4 +7,6 @@ public interface SenderRepository extends JpaRepository<Sender, Long> {
     List<Sender> findByAccountOrderByIdAsc(Account account);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

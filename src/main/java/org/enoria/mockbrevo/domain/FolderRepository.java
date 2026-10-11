@@ -8,4 +8,6 @@ public interface FolderRepository extends JpaRepository<Folder, Long> {
     Page<Folder> findByAccountOrderByIdAsc(Account account, Pageable pageable);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

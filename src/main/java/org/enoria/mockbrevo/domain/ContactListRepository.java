@@ -11,4 +11,6 @@ public interface ContactListRepository extends JpaRepository<ContactList, Long> 
     Optional<ContactList> findByIdAndAccount(Long id, Account account);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

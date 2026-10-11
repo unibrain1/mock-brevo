@@ -202,6 +202,54 @@ test.describe('sent emails', () => {
   });
 });
 
+test.describe('account menu', () => {
+  test.use({ locale: 'en-US' });
+
+  test('the ⋯ menu opens a campaign form and deletes one key', async ({ page, request }) => {
+    const key = `ui-delete-${Date.now()}`;
+    const kept = `ui-kept-${Date.now()}`;
+    for (const k of [key, kept]) {
+      expect((await request.get('/v3/account', { headers: { 'api-key': k } })).ok()).toBeTruthy();
+    }
+
+    await page.goto('/');
+    await page.locator('#filter').fill('ui-');
+    const row = page.locator('#accountsBody tr', { hasText: key });
+    const menu = row.locator(`details.row-menu[data-menu-for="${key}"]`);
+
+    await menu.locator('summary').click();
+    await expect(menu.locator('.menu-item')).toHaveText(['New campaign…', 'Delete this key…']);
+    // The poll does not close an open menu.
+    await page.waitForTimeout(2500);
+    await expect(menu).toHaveAttribute('open', '');
+
+    await menu.locator('[data-new-campaign-for]').click();
+    await expect(page.locator('#campaign-modal')).toHaveClass(/open/);
+    await page.keyboard.press('Escape');
+
+    // Cancel keeps the account.
+    page.once('dialog', d => d.dismiss());
+    await menu.locator('summary').click();
+    await menu.locator('[data-delete-key]').click();
+    await expect(page.locator('#accountsBody')).toContainText(key);
+
+    page.once('dialog', async d => {
+      expect(d.message()).toContain(key);
+      await d.accept();
+    });
+    await menu.locator('summary').click();
+    await menu.locator('[data-delete-key]').click();
+    await expect(page.locator('#accountsBody')).not.toContainText(key);
+    await expect(page.locator('#accountsBody')).toContainText(kept);
+    await expect(page.locator('#healthText')).toContainText('account deleted');
+
+    await page.locator('#langToggle').click();
+    await page.locator(`details.row-menu[data-menu-for="${kept}"] summary`).click();
+    await expect(page.locator(`details.row-menu[data-menu-for="${kept}"] [data-delete-key]`))
+      .toHaveText('Supprimer cette clé…');
+  });
+});
+
 test.describe('deep links', () => {
   test.use({ locale: 'en-US' });
 

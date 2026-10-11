@@ -7,5 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EmailEventRepository extends JpaRepository<EmailEvent, Long> {
     long countByAccount(Account account);
 
+    long deleteByAccount(Account account);
+
     List<EmailEvent> findByAccountAndOccurredAtBetween(Account account, Instant from, Instant to);
 }

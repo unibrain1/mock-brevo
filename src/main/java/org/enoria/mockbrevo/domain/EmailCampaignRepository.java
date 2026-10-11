@@ -11,4 +11,6 @@ public interface EmailCampaignRepository extends JpaRepository<EmailCampaign, Lo
     Optional<EmailCampaign> findByIdAndAccount(Long id, Account account);
 
     long countByAccount(Account account);
+
+    long deleteByAccount(Account account);
 }

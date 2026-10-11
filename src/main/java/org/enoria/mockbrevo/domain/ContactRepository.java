@@ -17,5 +17,8 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
 
     long countByAccount(Account account);
 
+    /** Loads and removes each row, so JPA also clears join-table rows (contact_in_list). */
+    long deleteByAccount(Account account);
+
     long countByAccountAndListsContaining(Account account, ContactList list);
 }

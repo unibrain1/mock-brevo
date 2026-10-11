@@ -10,5 +10,7 @@ public interface SentEmailRepository extends JpaRepository<SentEmail, Long> {
 
     long countByAccount(Account account);
 
+    long deleteByAccount(Account account);
+
     Optional<SentEmail> findByMessageId(String messageId);
 }
