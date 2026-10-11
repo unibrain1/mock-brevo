@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// evaluate() callbacks run in the page.
+/* global window, document */
+
 // Each run provisions its own tenant so assertions don't depend on prior data.
 const API_KEY = `ui-test-${Date.now()}`;
 let campaignId;
@@ -134,6 +137,12 @@ test.describe('sent emails', () => {
     });
     expect(sent.status()).toBe(201);
     const { messageId } = await sent.json();
+    // A second email gives the drill-down a detail row that stays hidden.
+    const other = await request.post('/v3/smtp/email', {
+      headers: { 'api-key': API_KEY },
+      data: { sender: { email: 'noreply@example.com' }, to: [{ email: 'other-ui@example.com' }], subject: 'Other mail' },
+    });
+    expect(other.status()).toBe(201);
 
     await page.goto('/');
     await page.locator('#filter').fill(API_KEY);
@@ -153,6 +162,27 @@ test.describe('sent emails', () => {
     const payload = detail.locator('pre.email-payload');
     await expect(payload).toContainText('long-line-marker');
     expect(await payload.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    // Also inside the viewport: a cell that grows to the content would pass the check above.
+    expect(await payload.evaluate(el => el.getBoundingClientRect().right <= document.documentElement.clientWidth)).toBe(true);
+
+    // A hidden detail row is empty: the poll formats only the open rows.
+    await expect(drill.locator('tr.detail[hidden]')).toHaveCount(1);
+    await expect(drill.locator('tr.detail[hidden] .detail-inner')).toHaveCount(0);
+
+    // A selection in the open row survives the 2s poll (the row is not rebuilt).
+    await payload.evaluate(el => {
+      el.dataset.marker = 'kept';
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    });
+    await page.waitForTimeout(4500);
+    expect(await page.evaluate(() => ({
+      kept: document.querySelector('pre.email-payload')?.dataset.marker,
+      selected: window.getSelection().toString().includes('long-line-marker'),
+    }))).toEqual({ kept: 'kept', selected: true });
+    await page.evaluate(() => window.getSelection().removeAllRanges());
 
     // The 2s poll rebuilds the drill-down. The open row must stay open.
     await page.waitForResponse(r => r.url().includes(`/accounts/${API_KEY}/emails`));
