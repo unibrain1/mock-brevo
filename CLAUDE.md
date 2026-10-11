@@ -51,7 +51,7 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
-`package.json` has npm `overrides` for `katex` and `smol-toml`. They fix Dependabot alerts in `markdownlint-cli2`'s dependencies, which pins the vulnerable versions. Remove an override when a `markdownlint-cli2` release allows the patched version.
+`package.json` has npm `overrides` for `katex` and `smol-toml`. They fix Dependabot alerts in `markdownlint-cli2`'s dependencies, which pins the vulnerable versions. After each `markdownlint-cli2` bump, remove both overrides, run `npm install` and `npm ls katex smol-toml`. If a package then resolves to a patched version, leave its override out. The tooling needs Node 22.13 or later (`engines` in `package.json`, set by ESLint 10).
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
