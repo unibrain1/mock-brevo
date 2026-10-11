@@ -12,10 +12,7 @@ public interface FolderRepository extends JpaRepository<Folder, Long> {
 
     long countByAccount(Account account);
 
-    /**
-     * Bulk delete: no row is loaded. Runs after {@code ContactRepository.deleteByAccount}:
-     * flushAutomatically writes its pending contact removals (and contact_in_list rows) first.
-     */
+    /** Bulk delete: no row is loaded. */
     @Modifying(flushAutomatically = true)
     @Query("delete from Folder e where e.account = :account")
     int deleteByAccount(@Param("account") Account account);
