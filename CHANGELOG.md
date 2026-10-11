@@ -8,6 +8,10 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-10-11
+
+Fork release, based on upstream 1.0.0. One account can be deleted on its own, and the email drill-down is easier to read.
+
 - Delete one account (#45). New admin route `DELETE /mock-status/accounts/{apiKey}` deletes the account and all of its data in one transaction, and returns the deleted counts (`404` for an unknown key). Other accounts do not change. In the admin UI, the Actions column is now a "⋯" menu per account with "Delete this key…" (with a confirm step) and "New campaign…".
 - Admin UI: the emails drill-down renders a detail row only when it opens, so a poll no longer formats up to 50 hidden payloads. The 2s poll skips a rebuild while text is selected in the table, so a selection (for example a `messageId` to copy) stays. An open "Received request" box keeps its scroll position (#39).
 - Admin UI: the "Received request" box in the email detail row wraps long lines, such as `htmlContent`, and keeps the JSON indentation (#43).

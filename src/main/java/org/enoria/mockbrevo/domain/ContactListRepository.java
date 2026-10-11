@@ -16,7 +16,7 @@ public interface ContactListRepository extends JpaRepository<ContactList, Long> 
     long countByAccount(Account account);
 
     /**
-     * Bulk delete: no row is loaded. Runs after {@code ContactRepository.deleteByAccount}:
+     * Bulk delete: no row is loaded. The first bulk delete after {@code ContactRepository.deleteByAccount}:
      * flushAutomatically writes its pending contact removals (and contact_in_list rows) first.
      */
     @Modifying(flushAutomatically = true)
