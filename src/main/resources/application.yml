@@ -46,6 +46,7 @@ mock-brevo:
   default-webhook-url: ${MOCK_DEFAULT_WEBHOOK_URL:}
   auto-fire-delivered: ${MOCK_AUTO_FIRE_DELIVERED:false}
   webhook-token: ${MOCK_WEBHOOK_TOKEN:}
+  log-sends: ${MOCK_LOG_SENDS:true}
   smtp:
     enabled: ${MOCK_SMTP_ENABLED:false}
     host: ${MOCK_SMTP_HOST:localhost}
