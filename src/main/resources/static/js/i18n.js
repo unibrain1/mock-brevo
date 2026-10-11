@@ -67,8 +67,11 @@
       'accounts.col.actions': 'Actions',
       'accounts.empty': 'Aucun compte — envoyez un appel pour provisionner.',
       'accounts.show': 'Afficher {what}',
-      'accounts.newCampaignTitle': 'Créer une nouvelle campagne',
-      'accounts.newCampaign': '+ Campagne',
+      'accounts.menuTitle': 'Actions sur ce compte',
+      'accounts.menu.newCampaign': 'Nouvelle campagne…',
+      'accounts.menu.deleteKey': 'Supprimer cette clé…',
+      'accounts.deleteConfirm':
+        'Supprimer le compte {key} et toutes ses données (emails, événements, contacts, listes, campagnes, templates, dossiers, expéditeurs, liste de blocage) ?\n\nLes autres comptes ne changent pas. Une nouvelle requête avec cette clé crée un compte vide.',
       'accounts.health': '{n} compte(s) · {time}',
 
       'emails.none': 'Aucun email envoyé.',
@@ -134,6 +137,8 @@
       'health.error': 'erreur: {msg}',
       'health.reset': 'réinitialisé · {summary}',
       'health.resetError': 'erreur reset: {msg}',
+      'health.deleted': 'compte supprimé · {summary}',
+      'health.deleteError': 'erreur suppression: {msg}',
 
       'modal.newCampaign': 'Nouvelle campagne',
       'modal.name': 'Nom',
@@ -229,8 +234,11 @@
       'accounts.col.actions': 'Actions',
       'accounts.empty': 'No accounts yet — send a request to provision one.',
       'accounts.show': 'Show {what}',
-      'accounts.newCampaignTitle': 'Create a new campaign',
-      'accounts.newCampaign': '+ Campaign',
+      'accounts.menuTitle': 'Account actions',
+      'accounts.menu.newCampaign': 'New campaign…',
+      'accounts.menu.deleteKey': 'Delete this key…',
+      'accounts.deleteConfirm':
+        'Delete the account {key} and all of its data (emails, events, contacts, lists, campaigns, templates, folders, senders, block list)?\n\nOther accounts do not change. A new request with this key creates an empty account.',
       'accounts.health': '{n} account(s) · {time}',
 
       'emails.none': 'No emails sent.',
@@ -296,6 +304,8 @@
       'health.error': 'error: {msg}',
       'health.reset': 'reset · {summary}',
       'health.resetError': 'reset error: {msg}',
+      'health.deleted': 'account deleted · {summary}',
+      'health.deleteError': 'delete error: {msg}',
 
       'modal.newCampaign': 'New campaign',
       'modal.name': 'Name',

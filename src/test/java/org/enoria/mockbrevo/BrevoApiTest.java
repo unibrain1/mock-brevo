@@ -628,6 +628,56 @@ class BrevoApiTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void deleteAccountRemovesOnlyThatTenantAndItsData() throws Exception {
+        String gone = newKey();
+        String kept = newKey();
+        for (String key : List.of(gone, kept)) {
+            sendEmail(key, "to@example.com", "[\"t\"]");
+            long listId = createList(key, "Linked");
+            mvc.perform(post("/v3/contacts/import").header("api-key", key)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json.writeValueAsString(java.util.Map.of(
+                                    "fileBody", "EMAIL\nada@example.com", "listIds", List.of(listId)))))
+                    .andExpect(status().isAccepted());
+            mvc.perform(post("/mock-status/accounts/" + key + "/blocked")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"b@example.com\"}"))
+                    .andExpect(status().isCreated());
+        }
+        JsonNode keptBefore = counters(kept);
+        Account goneAccount = accounts.findByApiKey(gone).orElseThrow();
+
+        String body = mvc.perform(delete("/mock-status/accounts/" + gone))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("deleted"))
+                .andReturn().getResponse().getContentAsString();
+        JsonNode deleted = json.readTree(body).get("deleted");
+        assertEquals(1, deleted.get("sentEmails").asLong());
+        assertEquals(1, deleted.get("contacts").asLong());
+        assertEquals(1, deleted.get("blockedContacts").asLong());
+        assertTrue(deleted.get("lists").asLong() >= 1, body);
+
+        assertTrue(accounts.findByApiKey(gone).isEmpty());
+        assertEquals(0, emailEvents.countByAccount(goneAccount));
+        assertEquals(keptBefore, counters(kept));
+        mvc.perform(get("/mock-status/accounts/" + kept + "/emails")).andExpect(jsonPath("$.count").value(1));
+
+        mvc.perform(delete("/mock-status/accounts/" + gone)).andExpect(status().isNotFound());
+        mvc.perform(delete("/mock-status/accounts/" + newKey())).andExpect(status().isNotFound());
+
+        // The key still works: the next request provisions a new, empty account.
+        mvc.perform(get("/v3/account").header("api-key", gone)).andExpect(status().isOk());
+        assertEquals(0, counters(gone).get("emailsSent").asLong());
+    }
+
+    private JsonNode counters(String key) throws Exception {
+        String status = mvc.perform(get("/mock-status")).andReturn().getResponse().getContentAsString();
+        for (JsonNode a : json.readTree(status).get("accounts")) {
+            if (key.equals(a.path("apiKey").asString())) return a.get("counters");
+        }
+        throw new AssertionError("no account for " + key);
+    }
+
     private static String today() {
         return LocalDate.now(ZoneOffset.UTC).toString();
     }

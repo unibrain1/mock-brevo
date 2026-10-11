@@ -279,6 +279,31 @@
     return haystacks.some(h => String(h || '').toLowerCase().includes(q));
   };
 
+  // apiKey of the account whose "⋯" menu is open. The poll waits while a menu is open.
+  let openMenu = null;
+
+  const closeMenu = () => {
+    openMenu = null;
+    document.querySelectorAll('details.row-menu[open]').forEach(m => { m.open = false; });
+  };
+
+  const deleteAccount = async (apiKey) => {
+    closeMenu();
+    if (!confirm(t('accounts.deleteConfirm', { key: apiKey }))) return;
+    try {
+      const resp = await fetch('/mock-status/accounts/' + encodeURIComponent(apiKey), { method: 'DELETE' });
+      if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+      const d = (await resp.json()).deleted || {};
+      accountDrilldown.delete(apiKey);
+      const summary = ['sentEmails', 'contacts', 'lists', 'campaigns', 'templates']
+        .map(k => `${k}:${d[k] ?? 0}`).join(' · ');
+      await refresh();
+      setHealth(true, t('health.deleted', { summary }));
+    } catch (err) {
+      setHealth(false, t('health.deleteError', { msg: err.message }));
+    }
+  };
+
   // Which accounts currently have their drilldown row expanded (key = apiKey, value = 'emails' | 'campaigns' | 'lists' | 'blocked' | null)
   const accountDrilldown = new Map();
   // The poll rebuilds the drill-down every 2s, so the open email rows are kept here (email ids).
@@ -326,7 +351,13 @@
         : `<code>${esc(a.apiKeyPreview)}</code> <span class="muted">${esc(t('common.masked'))}</span>`;
       const acct = a.account || {};
       const actions = a.apiKey
-        ? `<button class="btn-action" data-new-campaign-for="${apiKeyAttr}" title="${esc(t('accounts.newCampaignTitle'))}">${esc(t('accounts.newCampaign'))}</button>`
+        ? `<details class="row-menu" data-menu-for="${apiKeyAttr}"${openMenu === a.apiKey ? ' open' : ''}>
+            <summary class="btn-action" title="${esc(t('accounts.menuTitle'))}" aria-label="${esc(t('accounts.menuTitle'))}">⋯</summary>
+            <div class="row-menu-items">
+              <button type="button" class="menu-item" data-new-campaign-for="${apiKeyAttr}">${esc(t('accounts.menu.newCampaign'))}</button>
+              <button type="button" class="menu-item danger" data-delete-key="${apiKeyAttr}">${esc(t('accounts.menu.deleteKey'))}</button>
+            </div>
+          </details>`
         : `<span class="muted">${esc(t('common.maskedKey'))}</span>`;
       const drill = a.apiKey ? accountDrilldown.get(a.apiKey) : null;
       const drillRow = drill
@@ -351,7 +382,27 @@
     }).join('');
 
     tbody.querySelectorAll('[data-new-campaign-for]').forEach(btn => {
-      btn.addEventListener('click', () => openCampaignModal(btn.dataset.newCampaignFor));
+      btn.addEventListener('click', () => {
+        closeMenu();
+        openCampaignModal(btn.dataset.newCampaignFor);
+      });
+    });
+
+    tbody.querySelectorAll('[data-delete-key]').forEach(btn => {
+      btn.addEventListener('click', () => deleteAccount(btn.dataset.deleteKey));
+    });
+
+    tbody.querySelectorAll('details.row-menu').forEach(menu => {
+      menu.addEventListener('toggle', () => {
+        if (menu.open) {
+          openMenu = menu.dataset.menuFor;
+          tbody.querySelectorAll('details.row-menu[open]').forEach(other => {
+            if (other !== menu) other.open = false;
+          });
+        } else if (openMenu === menu.dataset.menuFor) {
+          openMenu = null;
+        }
+      });
     });
 
     tbody.querySelectorAll('.counter-drill').forEach(btn => {
@@ -777,6 +828,14 @@
     }
   };
 
+  // A click outside an open "⋯" menu, or Escape, closes it.
+  document.addEventListener('click', (e) => {
+    if (openMenu && !e.target.closest('details.row-menu')) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openMenu) closeMenu();
+  });
+
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.copy-btn');
     if (!btn) return;
@@ -1044,6 +1103,7 @@
       openDetails.clear();
       openEmails.clear();
       emailScroll.clear();
+      openMenu = null;
       accountDrilldown.clear();
       lastRequestsKey = null;
       const d = data.deleted || {};
@@ -1069,8 +1129,10 @@
   const schedule = () => {
     clearInterval(timer);
     if ($('#autoRefresh').checked) {
-      // Only the poll waits for a selection. A refresh that the user starts always runs.
+      // Only the poll waits for a selection or an open "⋯" menu (a rebuild would close it).
+      // A refresh that the user starts always runs.
       timer = setInterval(() => {
+        if (activeTab === 'accounts' && openMenu) return;
         if (!selectionInside($(activeTab === 'accounts' ? '#accountsBody' : '#requestsBody'))) refresh();
       }, 2000);
     }
