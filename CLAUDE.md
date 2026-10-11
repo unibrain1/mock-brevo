@@ -51,6 +51,8 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
+`package.json` has npm `overrides` for `katex` and `smol-toml`. They fix Dependabot alerts in `markdownlint-cli2`'s dependencies, which pins the vulnerable versions. Remove an override when a `markdownlint-cli2` release allows the patched version.
+
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
 CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; its checklist mirrors the rules in this file, and a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
