@@ -1,6 +1,6 @@
 version: 2
 
-# Every ecosystem runs Mondays at 05:00 Pacific so PRs are waiting before 6am.
+# All ecosystems run Monday 04:00 Pacific so PRs are open before the Monday dashboard email.
 # PRs are assigned to the fork owner so GitHub notifies them.
 updates:
   - package-ecosystem: maven
@@ -8,7 +8,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:00"
+      time: "04:00"
       timezone: America/Los_Angeles
     assignees: [unibrain1]
     open-pull-requests-limit: 5
@@ -28,7 +28,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:00"
+      time: "04:00"
       timezone: America/Los_Angeles
     assignees: [unibrain1]
     open-pull-requests-limit: 3
@@ -41,7 +41,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:00"
+      time: "04:00"
       timezone: America/Los_Angeles
     assignees: [unibrain1]
     open-pull-requests-limit: 3
@@ -51,7 +51,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:00"
+      time: "04:00"
       timezone: America/Los_Angeles
     assignees: [unibrain1]
     open-pull-requests-limit: 2
