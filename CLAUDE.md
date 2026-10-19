@@ -41,7 +41,7 @@ yamllint -s .                                   # YAML
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist and inline comments on lines; the check fails if this run posted no review, or if the "Blocking" section has content) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The `claude-code-review.yml` checklist mirrors the rules in this file, in `.claude/skills/` and in `.claude/rules/admin-ui.md`. When you change one of these rules, also change the workflow prompt.
 
@@ -105,7 +105,7 @@ The admin UI rules are in `.claude/rules/admin-ui.md`. Claude Code loads them wh
 ### The Claude review
 
 - Fix every **Blocking** and **Important** finding. Take one round of **Suggestions**, then reply with what you did not change and why, and merge. Do not loop on optional suggestions.
-- "Claude encountered an error" in the review comment means the workflow failed, not the code. The `claude-review` check can then fail with no Blocking section. Read the last complete review.
+- "Claude encountered an error" in the review comment means the workflow failed, not the code. The `claude-review` check then fails with "No Claude review comment from this run". Run the review again. Do not use an older review.
 
 ### Tests
 
