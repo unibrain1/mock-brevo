@@ -19,11 +19,7 @@ sed -n 's:.*<upstream.version>\([^$<][^<]*\)</upstream.version>.*:\1:p' pom.xml 
 
 `pom.xml` has a second `<upstream.version>` line (`${upstream.version}`, in the `build-info` config). This broke the `v1.1.0` run, and the step now skips values that start with `$`. If a release run fails **before** it publishes an image (check `docker manifest inspect ghcr.io/unibrain1/mock-brevo:<version>`), fix it on `main`, delete the remote tag and tag again. If it published anything, release the next patch version instead.
 
-Keep only the `origin` remote (unibrain1/mock-brevo). Do not keep a permanent `upstream` remote: with one, `gh` can pick c0boleis/mock-brevo as the target of `gh pr create`. In each clone:
-
-- If a clone still has the old `upstream` remote (and its `tagOpt=--no-tags` setting), run `git remote remove upstream`.
-- If a clone has a remote other than `origin`, run `gh repo set-default unibrain1/mock-brevo` once. `gh` then uses the fork for read and write commands. With only `origin`, `gh` has no other repo to pick.
-- Also pass `--repo unibrain1/mock-brevo` to `gh` write commands, as a second safeguard.
+Follow the remote rules in root `CLAUDE.md` ("Releasing (this fork)"): keep only the `origin` remote, and pass `--repo unibrain1/mock-brevo` to `gh` write commands.
 
 To merge an upstream release, fetch it from the URL. This adds no remote and imports no tags (an upstream tag such as `v1.1.0` would clash with the fork's own). `--no-ff` always makes a merge commit:
 

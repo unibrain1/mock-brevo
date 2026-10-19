@@ -41,7 +41,9 @@ yamllint -s .                                   # YAML
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; its checklist mirrors the rules in this file, and a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist; a non-empty "Blocking" section fails the check) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+
+The `claude-code-review.yml` checklist mirrors the rules in this file, in `.claude/skills/` and in `.claude/rules/admin-ui.md`. When you change one of these rules, also change the workflow prompt.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
@@ -65,8 +67,9 @@ Lazy collections (notably `Contact.lists`) are iterated in controllers during re
 
 The admin routes are in `MockStatusController`, `MockAccountController` and `MockWebhooksController`.
 
-- Delete child rows first, in the order of `MockResetController`.
-- In the UI, each account row's "⋯" menu has "Delete this key…" and "New campaign…". If you add an account-scoped entity, add its `deleteByAccount` here and its delete to `/mock/reset`.
+- `DELETE /mock-status/accounts/{apiKey}` (`MockAccountController`) deletes one account and its rows in one transaction, with the account row locked. It deletes child rows first, in the order of `MockResetController`.
+- If you add an account-scoped entity, add its `deleteByAccount` to `MockAccountController` and its delete to `MockResetController` (`/mock/reset`).
+- In the UI, each account row's "⋯" menu has "Delete this key…" and "New campaign…".
 
 ### Email events (shared store)
 
@@ -78,9 +81,7 @@ Webhooks copy `tags`, `subject`, `sender_email`, `template_id` and `X-Mailin-cus
 
 ### Admin UI rules (`src/main/resources/static/`)
 
-The other admin UI rules are in `src/main/resources/static/CLAUDE.md`.
-
-- **Don't shadow `t`** (the translator) with a local variable in `app.js`.
+The admin UI rules are in `.claude/rules/admin-ui.md`. Claude Code loads them when a session works on a file in `src/main/resources/static/`.
 
 ### Request logging
 
@@ -88,9 +89,9 @@ The other admin UI rules are in `src/main/resources/static/CLAUDE.md`.
 
 ### Config properties
 
-Defined in `MockBrevoProperties` (`mock-brevo.*` prefix, bound in `application.yml`):
+`MockBrevoProperties` defines them (`mock-brevo.*` prefix, bound in `application.yml`). The README and `application.yml` list all of them.
 
-`log-sends` (`MOCK_LOG_SENDS`, default `true`) logs one INFO line per send (after commit): `messageId`, addresses, subject, `templateId`, `tags`. Never the body, attachments, `params`, `headers` or the api-key. Control characters in client values become spaces.
+- **Never log a send's body or secrets.** `log-sends` (`MOCK_LOG_SENDS`, default `true`) logs one INFO line per send (after commit): `messageId`, addresses, subject, `templateId`, `tags`. Never the body, attachments, `params`, `headers` or the api-key. Control characters in client values become spaces.
 
 ## Working on this repo
 
@@ -119,8 +120,6 @@ Image checks fill the Docker disk quickly, and on Docker Desktop the disk is sha
 
 Use the `release` skill (`.claude/skills/release/SKILL.md`) for the release steps.
 
-Only tag forward: re-running an older release moves `latest` back to it.
-
 Keep only the `origin` remote (unibrain1/mock-brevo). Do not keep a permanent `upstream` remote: with one, `gh` can pick c0boleis/mock-brevo as the target of `gh pr create`. In each clone:
 
 - If a clone still has the old `upstream` remote (and its `tagOpt=--no-tags` setting), run `git remote remove upstream`.
@@ -129,7 +128,7 @@ Keep only the `origin` remote (unibrain1/mock-brevo). Do not keep a permanent `u
 
 ## Endpoint coverage
 
-The original priority list is in `ENDPOINTS.md`. The upstream author wrote it for their own app, so its "Called from" column names that app's call sites. In this repo today:
+The original priority list is in `ENDPOINTS.md`. The upstream author wrote it for their own app, so its "Called from" column names that app's call sites. `ENDPOINTS.md` and the README list what is implemented.
 
 Add a new Brevo endpoint with the `add-endpoint` skill. Match Brevo JSON field names exactly, and scope every query by account.
 
