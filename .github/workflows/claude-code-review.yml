@@ -1,24 +1,22 @@
-name: Claude code review
+name: Claude Code Review
 
-# Automatic PR review, modelled on MyGunLog's issue-level review:
-# - track_progress posts a live checklist comment on the PR that becomes the review
-# - a repo-specific checklist (from CLAUDE.md) instead of a generic prompt
-# - fixed headings: Blocking / Important / Suggestions / Strengths
-# - line findings go in inline comments, the summary in one PR comment
-# - CI gate: the job fails if Claude posted no comment in this run, or if
-#   the review's "Blocking" section has content
+# Reviews each non-draft PR against CLAUDE.md. Posts line findings as inline
+# comments and one summary comment. track_progress makes the action post a
+# progress comment and update it with the result, so a review comment exists
+# even when Claude's own gh pr comment call is denied. The last step fails the
+# job if Claude posted no comment in this run, or if the review has content
+# under "### Blocking". This is the standard review of the unibrain1 repos.
 #
-# Runs on every non-draft push. Skipped for Dependabot PRs (no access to
-# secrets) and for titles containing [skip-review] or [WIP].
-# Ask for a follow-up at any time by commenting `@claude ...` (claude.yml).
+# Skipped: draft PRs, Dependabot PRs (Dependabot runs get no secrets), and
+# titles that contain [skip-review].
 #
-# Needs the CLAUDE_CODE_OAUTH_TOKEN secret and the Claude GitHub App
-# (`/install-github-app`). The action only runs when this file matches the
-# copy on the default branch, so edits to it skip their own PR's review.
+# The action does not run when a PR changes this file (the PR copy differs
+# from main). A person must review such a PR. The change takes effect after
+# the merge.
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [opened, synchronize, ready_for_review]
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
@@ -26,21 +24,20 @@ concurrency:
 
 jobs:
   review:
-    name: claude-review
     if: |
-      github.actor != 'dependabot[bot]' &&
       github.event.pull_request.draft == false &&
-      !contains(github.event.pull_request.title, '[skip-review]') &&
-      !contains(github.event.pull_request.title, '[WIP]')
+      github.actor != 'dependabot[bot]' &&
+      !contains(github.event.pull_request.title, '[skip-review]')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: write
       issues: read
       id-token: write
+
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -48,16 +45,12 @@ jobs:
         id: start
         run: echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
-      - name: Run Claude review
+      - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6 # v1.0.253
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
-          claude_args: >-
-            --model claude-opus-5-5
-            --allowedTools
-            "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Grep,Glob"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -128,42 +121,39 @@ jobs:
             - Formatting and style (not enforced by design)
             - Anything the compiler, SpotBugs or the linters would already flag
 
-            ## Output
+            Output:
+            1. For each finding on a specific line, post an inline comment with
+               `mcp__github_inline_comment__create_inline_comment` (confirmed: true).
+               Put each inline finding in the summary too, under its heading,
+               with the file and the line. The gate reads only the summary.
+            2. Write one summary to `/tmp/claude-review.md` with the Write tool.
+               Start it with the heading `## Claude review`. Then use these
+               headings, and leave out each heading that has no content:
+               - `### Blocking`: a bug, a security problem, or a break of a
+                 CLAUDE.md rule. The job fails while this section has content.
+               - `### Important`: a real risk, or a missing test or doc update.
+               - `### Suggestions`: an optional improvement.
+               - `### Strengths`: what the PR does well.
+               If there are no findings, write only "No issues found." after the
+               first heading. Do not write "None" under a heading.
+            3. Post the summary with this one-line command:
 
-            For each finding on a specific line, post an inline comment with
-            `mcp__github_inline_comment__create_inline_comment` (confirmed: true).
-            Every finding that you post as an inline comment must also be in
-            the summary comment, under its severity heading, with file:line.
-            The merge gate reads only the summary comment.
+                 gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/claude-review.md
 
-            Then post your review summary as a PR comment:
-            ```bash
-            gh pr comment ${{ github.event.pull_request.number }} --body "..."
-            ```
+               Do not put the summary text in the command. A command with more
+               than one line is denied. Post the summary before you end the turn.
+            4. Report only findings that you checked in the code. Give the file
+               and the line for each finding.
 
-            Use exactly these headings, and omit any section with no content (do
-            NOT include an empty section or write "None"):
-
-            ### Blocking
-            Bugs, contract breaks, tenant-isolation or security problems, CLAUDE.md
-            rule violations. Must fix before merge.
-
-            ### Important
-            Design gaps, missing tests for non-trivial logic, real maintenance risk.
-
-            ### Suggestions
-            Optional improvements.
-
-            ### Strengths
-            What's done well.
-
-            Each item cites `file:line` and the specific rule or reason.
-            Only post GitHub comments; do not output the review as a message.
+            Post only GitHub comments. Do not send the review as a message.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Write,Grep,Glob"
 
       - name: Fail if no review was posted, or if it has Blocking findings
         if: always()
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
@@ -184,9 +174,13 @@ jobs:
           if [ ! -s "$RUNNER_TEMP/review.md" ]; then
             # The action does not run when this file on the PR head differs
             # from main. Give a warning only when that is the cause: no
-            # execution file, and the two blob SHAs differ.
+            # execution file, and the two blob SHAs differ. An empty lookup
+            # counts as no. A 404 on main means that this PR adds the file.
             WF_PATH='.github/workflows/claude-code-review.yml'
-            MAIN_BLOB=$(gh api "repos/${REPO}/contents/${WF_PATH}?ref=main" --jq .sha 2>/dev/null || true)
+            MAIN_BLOB=$(gh api "repos/${REPO}/contents/${WF_PATH}?ref=main" --jq .sha 2>"$RUNNER_TEMP/main_err" || true)
+            if [ -z "$MAIN_BLOB" ] && grep -q 'HTTP 404' "$RUNNER_TEMP/main_err"; then
+              MAIN_BLOB=none
+            fi
             HEAD_BLOB=$(gh api "repos/${REPO}/contents/${WF_PATH}?ref=${HEAD_SHA}" --jq .sha 2>/dev/null || true)
             if [ -z "$EXECUTION_FILE" ] && [ -n "$MAIN_BLOB" ] && [ -n "$HEAD_BLOB" ] \
                && [ "$MAIN_BLOB" != "$HEAD_BLOB" ]; then
@@ -196,14 +190,15 @@ jobs:
             echo "::error::No Claude review comment from this run found on this PR (run started ${STARTED})."
             exit 1
           fi
-          # The prompt asks for empty sections to be omitted, but can't guarantee
-          # it, so check the Blocking section has real content (not "None"/"N/A").
+          # The prompt says to leave out an empty section. It cannot make sure
+          # of that, so an empty Blocking section ("None", "N/A", "No issues
+          # found.") does not count.
           SECTION=$(awk '
             /^#{1,6}[[:space:]]+Blocking[[:space:]]*$/ { capture=1; next }
             /^#{1,6}[[:space:]]/ { capture=0 }
             capture { print }
           ' "$RUNNER_TEMP/review.md")
-          NORMALIZED=$(echo "$SECTION" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | sed -E 's/^(none\.?|n\/a\.?|-)+$//')
+          NORMALIZED=$(echo "$SECTION" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | sed -E 's/^(none\.?|n\/a\.?|-|noissuesfound\.?)+$//')
           if [ -n "$NORMALIZED" ]; then
             echo "::error::Review posted Blocking findings. Fix them before merging; see the PR comment."
             exit 1
