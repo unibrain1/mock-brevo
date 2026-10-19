@@ -198,3 +198,4 @@ Images are published as `ghcr.io/unibrain1/mock-brevo:<version>`, plus `<major>.
 ## Licence
 
 [MIT](LICENSE) — use freely, attribute if you wish.
+
