@@ -8,6 +8,8 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- CI: the Claude review posts line findings as inline comments. The `claude-review` check fails if this run posted no review. The Blocking check reads only Claude comments from this run, not the last comment on the PR. `claude.yml` sets `--model claude-sonnet-5-5` and gets write permissions, so it can reply.
+
 ## [1.4.0] — 2026-10-11
 
 Fork release, based on upstream 1.0.0. One account can be deleted on its own, and the email drill-down is easier to read.

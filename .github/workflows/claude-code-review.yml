@@ -4,7 +4,9 @@ name: Claude code review
 # - track_progress posts a live checklist comment on the PR that becomes the review
 # - a repo-specific checklist (from CLAUDE.md) instead of a generic prompt
 # - fixed headings: Blocking / Important / Suggestions / Strengths
-# - CI gate: the job fails if the review's "Blocking" section has content
+# - line findings go in inline comments, the summary in one PR comment
+# - CI gate: the job fails if Claude posted no comment in this run, or if
+#   the review's "Blocking" section has content
 #
 # Runs on every non-draft push. Skipped for Dependabot PRs (no access to
 # secrets) and for titles containing [skip-review] or [WIP].
@@ -42,7 +44,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Record run start time
+        id: start
+        run: echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude review
+        id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -50,7 +57,7 @@ jobs:
           claude_args: >-
             --model claude-opus-5-5
             --allowedTools
-            "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Grep,Glob"
+            "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Grep,Glob"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -123,7 +130,10 @@ jobs:
 
             ## Output
 
-            Post your review as a PR comment:
+            For each finding on a specific line, post an inline comment with
+            `mcp__github_inline_comment__create_inline_comment` (confirmed: true).
+
+            Then post your review summary as a PR comment:
             ```bash
             gh pr comment ${{ github.event.pull_request.number }} --body "..."
             ```
@@ -147,21 +157,49 @@ jobs:
             Each item cites `file:line` and the specific rule or reason.
             Only post GitHub comments; do not output the review as a message.
 
-      - name: Fail if Blocking findings
+      - name: Fail if no review was posted, or if it has Blocking findings
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUM: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
+          EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
+          STARTED: ${{ steps.start.outputs.time }}
         run: |
-          BODY=$(gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
-            --jq 'last.body // ""' 2>/dev/null || echo "")
+          # Use only Claude comments from this run: the track_progress comment
+          # and the summary comment. Comments from earlier runs, from people,
+          # and error comments do not count. Without a start time, the check
+          # fails.
+          if [ -z "$STARTED" ]; then
+            echo "::error::No run start time. Cannot check for a review from this run."
+            exit 1
+          fi
+          gh api --paginate "repos/${REPO}/issues/${PR_NUM}/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]") | select(.created_at >= env.STARTED) | select(.body | contains("Claude encountered an error") | not) | .body' \
+            > "$RUNNER_TEMP/review.md"
+          if [ ! -s "$RUNNER_TEMP/review.md" ]; then
+            # The action does not run when this file on the PR head differs
+            # from main. Give a warning only when that is the cause: no
+            # execution file, and the two blob SHAs differ.
+            WF_PATH='.github/workflows/claude-code-review.yml'
+            MAIN_BLOB=$(gh api "repos/${REPO}/contents/${WF_PATH}?ref=main" --jq .sha 2>/dev/null || true)
+            HEAD_BLOB=$(gh api "repos/${REPO}/contents/${WF_PATH}?ref=${HEAD_SHA}" --jq .sha 2>/dev/null || true)
+            if [ -z "$EXECUTION_FILE" ] && [ -n "$MAIN_BLOB" ] && [ -n "$HEAD_BLOB" ] \
+               && [ "$MAIN_BLOB" != "$HEAD_BLOB" ]; then
+              echo "::warning::No review posted. The action did not run, because ${WF_PATH} on this PR differs from main. A person must review this PR."
+              exit 0
+            fi
+            echo "::error::No Claude review comment from this run found on this PR (run started ${STARTED})."
+            exit 1
+          fi
           # The prompt asks for empty sections to be omitted, but can't guarantee
           # it, so check the Blocking section has real content (not "None"/"N/A").
-          SECTION=$(echo "$BODY" | awk '
+          SECTION=$(awk '
             /^#{1,6}[[:space:]]+Blocking[[:space:]]*$/ { capture=1; next }
-            /^#{1,6}[[:space:]]/ { if (capture) exit }
+            /^#{1,6}[[:space:]]/ { capture=0 }
             capture { print }
-          ')
+          ' "$RUNNER_TEMP/review.md")
           NORMALIZED=$(echo "$SECTION" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | sed -E 's/^(none\.?|n\/a\.?|-)+$//')
           if [ -n "$NORMALIZED" ]; then
             echo "::error::Review posted Blocking findings. Fix them before merging; see the PR comment."
