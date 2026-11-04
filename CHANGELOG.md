@@ -12,6 +12,7 @@ with its own version numbers; each release notes the upstream
 - Dev dependencies: `markdownlint-cli2` 0.23.3 → 0.24.0. It brings `markdown-it` 15.0.3, which fixes Dependabot alerts #5, #6 and #7.
 - Dev dependencies: remove the `smol-toml` override, because `markdownlint-cli2` 0.24.0 brings the patched 1.9.1. The `katex` override stays (without it, `katex` resolves to 0.16.47). `npm audit fix` lifts `fast-uri` to 3.1.9.
 - Dev dependencies: an npm override lifts `re2js` 2.8.6 → `^2.8.7` (Dependabot alert #8, quadratic-time denial of service). `markdownlint` 0.42.0 pins 2.8.6 exactly, so Dependabot cannot fix it. The package is not in the image.
+- Dev dependencies: npm overrides lift `minimatch` 10.2.6 → `^11.0.4` and `glob` 13.0.6 → `^14.0.3` (moderate advisories GHSA-g3hv-75wg-m249 and GHSA-3g3m-2fjr-6pw4). `eslint` and `htmlhint` pin the old major versions. Neither package is in the image.
 
 ## [1.4.0] — 2026-10-11
 

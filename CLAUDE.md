@@ -37,7 +37,14 @@ MOCK_BREVO_URL=http://localhost:8080 npm run test:ui   # Playwright, against a r
 yamllint -s .                                   # YAML
 ```
 
-`package.json` has npm `overrides` entries for `katex` and `re2js`. Each fixes a Dependabot alert in `markdownlint-cli2`'s dependencies, which pin the vulnerable version (`markdownlint` pins `re2js` exactly). After each `markdownlint-cli2` bump, remove the overrides, run `npm install` and `npm ls katex re2js`. If a package then resolves to a patched version (`katex` 0.18.2 or later, `re2js` 2.8.7 or later), leave its override out. The tooling needs Node `^22.13 || >=24` (`engines` in `package.json`). ESLint 10 leaves out Node 23, other lint dependencies need Node 22 or later, and the katex override needs 22.12 or later.
+`package.json` has npm `overrides` entries for packages whose parent pins a vulnerable version:
+
+- `katex` (0.18.2 or later) and `re2js` (2.8.7 or later), from `markdownlint-cli2` (`markdownlint` pins `re2js` exactly).
+- `minimatch` (11.0.1 or later), from `eslint` (`^10.2.6`), and `glob` (14.0.2 or later), from `htmlhint` (`^13.0.6`). Both overrides cross a major version. With them, ESLint, stylelint and htmlhint still lint the same files.
+
+After a bump of a parent package, remove its overrides, run `npm install` and `npm ls <package>`. If the package then resolves to the patched version, leave its override out. If a lint command reports "no files" or fewer files after an override change, the override broke the file matching.
+
+The tooling needs Node `^22.13 || >=24` (`engines` in `package.json`). ESLint 10 leaves out Node 23, other lint dependencies need Node 22 or later, and the katex override needs 22.12 or later.
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
