@@ -48,9 +48,9 @@ The tooling needs Node `^22.13 || >=24` (`engines` in `package.json`). ESLint 10
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` (Claude PR review with a live progress checklist and inline comments on lines; the check fails if this run posted no review, or if the "Blocking" section has content) and `claude.yml` (`@claude` mentions); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` and `claude.yml` (callers of the shared devkit workflows `claude-review.yml` and `claude.yml` on `@main`, see <https://github.com/unibrain1/devkit/blob/main/docs/ci-workflows.md>); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
-The `claude-code-review.yml` checklist mirrors the rules in this file, in `.claude/skills/` and in `.claude/rules/admin-ui.md`. When you change one of these rules, also change the workflow prompt.
+The review checks are in `.claude/rules/api-review.md` and `.claude/rules/admin-ui.md`. They repeat rules from this file and from `.claude/skills/`. When you change one of these rules, also change the rules file.
 
 The H2 console is mounted at `/h2-console` (JDBC URL visible in startup logs).
 
@@ -104,15 +104,15 @@ The admin UI rules are in `.claude/rules/admin-ui.md`. Claude Code loads them wh
 
 ### Branches and PRs
 
-- A milestone gets a branch `milestone/vX.Y.Z` from `main`. Each issue gets a branch from it (`issue/<n>-<slug>`) and a PR into the milestone branch. One PR merges the milestone branch into `main`.
-- GitHub closes an issue from "Closes #N" only when the PR merges into `main`. Put "Closes #…" for every milestone issue in the milestone → `main` PR.
+The branch model and the PR order are in the flow block at the end of this file.
+
 - **Stacked PRs:** before you merge a PR with `--delete-branch`, move every PR that is based on its branch to the milestone branch (`gh pr edit <n> --base milestone/vX.Y.Z`). Deleting a base branch **closes** the PRs on it; it does not move them.
 - Each branch adds its own line under `## [Unreleased]` in `CHANGELOG.md`, so a rebase often conflicts there. Keep every branch's line.
 
 ### The Claude review
 
 - Fix every **Blocking** and **Important** finding. Take one round of **Suggestions**, then reply with what you did not change and why, and merge. Do not loop on optional suggestions.
-- "Claude encountered an error" in the review comment means the workflow failed, not the code. The `claude-review` check then fails with "No Claude review comment from this run". Run the review again. Do not use an older review.
+- The review comes from the shared devkit workflow. A PR that changes `claude-code-review.yml` gets no review: the gate passes with a warning, and a person reviews the PR.
 
 ### Tests
 
@@ -147,3 +147,25 @@ Add a new Brevo endpoint with the `add-endpoint` skill. Match Brevo JSON field n
 - **Keep `Cache-Control: no-cache` on the admin UI files** (`spring.web.resources.cache` in `application.yml`). Without it, a browser used an `app.js` from an older image with a newer `index.html`, and the FR/EN toggle did nothing. After such an upgrade, one hard reload is still necessary.
 - **Brevo doc links use kebab-case slugs** (`get-transac-blocked-contacts`). Brevo renames reference pages from time to time. After you change `DOC_ROUTES` in `app.js`, run `scripts/check-doc-links.sh`: it requests every slug and exits 1 if one does not return 200.
 - **Don't actually send email.** `POST /v3/smtp/email` stores the payload and returns a synthetic `messageId`. The only outbound mail path is the opt-in `SmtpForwarder` (`MOCK_SMTP_ENABLED`, off by default), meant for a local catcher such as Mailpit; don't add any other transport or enable it by default.
+
+<!-- flow:begin rev 1 -->
+## Developer workflow (flow)
+
+Branches: `main` ← `milestone/vX.Y.Z` ← `issue/NNN-slug`. One PR for each
+issue, to the milestone branch. A hotfix branches from `main` (the
+`flow:hotfix` skill).
+
+```text
+/flow:plan-milestone → /flow:start-milestone
+  per issue: /flow:start-issue → /flow:execute-plan → /commit → /flow:review-pr
+             → /flow:commit-push-pr → /flow:address-pr-comments → /flow:finish-issue
+/flow:finish-milestone → /flow:review-milestone → /flow:release-milestone
+```
+
+Hand-offs: start the next command through the Skill tool only when both
+commands declare the same `model:`. Otherwise, tell the user to type it.
+At an issue or milestone boundary, recommend `/clear` first.
+
+Project facts for these commands are in `.claude/project.md`. The full
+method is in the `flow:workflow` skill.
+<!-- flow:end -->
