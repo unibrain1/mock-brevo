@@ -1,3 +1,4 @@
+# Local build output and caches stay out of git.
 .DS_Store
 *.log
 .idea/
