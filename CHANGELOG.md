@@ -8,6 +8,7 @@ with its own version numbers; each release notes the upstream
 
 ## [Unreleased]
 
+- CI: the Claude review and `@claude` use the shared devkit workflows (`unibrain1/devkit`, `@main`). The review checks move from the workflow prompt to `.claude/rules/api-review.md`. Local sessions use the devkit `flow` plugin (`.claude/project.md`, the flow block in `CLAUDE.md`).
 - CI: the Claude review posts line findings as inline comments. The `claude-review` check fails if this run posted no review. The Blocking check reads only Claude comments from this run, not the last comment on the PR. `claude.yml` sets `--model claude-sonnet-5-5` and gets write permissions, so it can reply.
 - Dev dependencies: `markdownlint-cli2` 0.23.3 → 0.24.0. It brings `markdown-it` 15.0.3, which fixes Dependabot alerts #5, #6 and #7.
 - Dev dependencies: remove the `smol-toml` override, because `markdownlint-cli2` 0.24.0 brings the patched 1.9.1. The `katex` override stays (without it, `katex` resolves to 0.16.47). `npm audit fix` lifts `fast-uri` to 3.1.9.
