@@ -49,7 +49,9 @@
       "Bash(npm run lint)",
       "Bash(npm run lint:*)",
       "Bash(yamllint -s .)",
-      "Bash(actionlint)"
+      "Bash(actionlint)",
+      "Bash(flow-baseline --status:*)",
+      "Bash(flow-plugins:*)"
     ],
     "deny": [
       "Skill(commit-commands:commit-push-pr)",
