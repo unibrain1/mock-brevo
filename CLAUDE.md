@@ -44,7 +44,7 @@ yamllint -s .                                   # YAML
 
 After a bump of a parent package, remove its overrides, run `npm install` and `npm ls <package>`. If the package then resolves to the patched version, leave its override out. If a lint command reports "no files" or fewer files after an override change, the override broke the file matching.
 
-The tooling needs Node `^22.13 || >=24` (`engines` in `package.json`). ESLint 10 leaves out Node 23, other lint dependencies need Node 22 or later, and the katex override needs 22.12 or later.
+The tooling needs Node `^22.22.2 || ^24.15.0 || >=26` (`engines` in `package.json`). stylelint 18 sets this range: it leaves out Node 23 and 25. ESLint 10 also leaves out Node 23, and the katex override needs 22.12 or later.
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
