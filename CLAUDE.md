@@ -10,7 +10,7 @@
 
 ## Build & run
 
-The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.9.16 into `~/.m2/wrapper/`.
+The Maven wrapper (`./mvnw`) is checked in — no system Maven install required. Java 25 on `PATH` is the only prerequisite. First invocation downloads Maven 3.10.2 into `~/.m2/wrapper/`.
 
 If the host has no Java 25 (`Unable to locate a Java Runtime`), run the wrapper in a container. The named volume keeps the Maven cache between runs. On Docker Desktop (macOS):
 
