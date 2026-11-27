@@ -48,7 +48,7 @@ The tooling needs Node `^22.13 || >=24` (`engines` in `package.json`). ESLint 10
 
 Read the exit code of every lint and test command. Do not pipe them through `tail` or `grep` in a way that hides a failure: `npx markdownlint-cli2 … | tail -1` reported success while it had an error, and CI caught it later.
 
-CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `claude-code-review.yml` and `claude.yml` (callers of the shared devkit workflows `claude-review.yml` and `claude.yml` on `@main`, see <https://github.com/unibrain1/devkit/blob/main/docs/ci-workflows.md>); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
+CI (`.github/workflows/`): `ci.yml` (Java lint + API tests, Playwright UI tests, Docker smoke), `lint.yml` (web/docs, YAML, actionlint, hadolint), `secrets-scan.yml` (caller of the shared devkit `secrets-scan.yml` on `@main`, check `secrets-scan / trufflehog`), `claude-code-review.yml` and `claude.yml` (callers of the shared devkit workflows `claude-review.yml` and `claude.yml` on `@main`, see <https://github.com/unibrain1/devkit/blob/main/docs/ci-workflows.md>); both need the `CLAUDE_CODE_OAUTH_TOKEN` secret. SpotBugs exclusions live in `spotbugs-exclude.xml`; add a reason for each.
 
 The review checks are in `.claude/rules/api-review.md` and `.claude/rules/admin-ui.md`. They repeat rules from this file and from `.claude/skills/`. When you change one of these rules, also change the rules file.
 
